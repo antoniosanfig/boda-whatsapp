@@ -60,6 +60,8 @@ const btnRemoveQrImage = document.getElementById('btn-remove-qr-image');
 const inputExcelFile = document.getElementById('input-excel-file');
 const dropZoneExcel = document.getElementById('drop-zone-excel');
 const btnDownloadTemplate = document.getElementById('btn-download-template');
+const btnDownloadCurrentList = document.getElementById('btn-download-current-list');
+const btnClearAllData = document.getElementById('btn-clear-all-data');
 const inputTestBatchPhone = document.getElementById('input-test-batch-phone');
 const selectTestBatchCount = document.getElementById('select-test-batch-count');
 const btnLoadTestBatch = document.getElementById('btn-load-test-batch');
@@ -101,6 +103,7 @@ const btnResumeSending = document.getElementById('btn-resume-sending');
 const btnStopSending = document.getElementById('btn-stop-sending');
 const btnRetryFailed = document.getElementById('btn-retry-failed');
 const retryFailedCount = document.getElementById('retry-failed-count');
+const btnResetSending = document.getElementById('btn-reset-sending');
 const btnDownloadReport = document.getElementById('btn-download-report');
 const progressBar = document.getElementById('progress-bar');
 const progressLabel = document.getElementById('progress-label');
@@ -330,8 +333,10 @@ async function procesarExcelHibrido(file) {
         const codigoKey = keys.find(k => /codigo|código|qr|id|folio|clave/i.test(k.trim()));
 
         const rawNombre = nombreKey ? String(row[nombreKey]).trim() : '';
-        const rawTelefono = telefonoKey ? String(row[telefonoKey]).trim() : '';
-        const pases = pasesKey && String(row[pasesKey]).trim() ? String(row[pasesKey]).trim() : '1';
+        let rawTelStr = telefonoKey && row[telefonoKey] !== undefined ? String(row[telefonoKey]).trim() : '';
+        if (/^\d+\.0+$/.test(rawTelStr)) rawTelStr = rawTelStr.split('.')[0];
+        const rawTelefono = rawTelStr.replace(/\D/g, '');
+        const pases = pasesKey && String(row[pasesKey]).trim() ? String(row[pasesKey]).trim().replace(/\.0+$/, '') : '1';
         const mesa = mesaKey && String(row[mesaKey]).trim() ? String(row[mesaKey]).trim() : '';
         const codigo = codigoKey && String(row[codigoKey]).trim()
           ? String(row[codigoKey]).trim()
@@ -362,25 +367,15 @@ async function procesarExcelHibrido(file) {
   reader.readAsArrayBuffer(file);
 }
 
-// Si se cargó localmente y luego se conecta el servidor, sincronizar creando un Excel en memoria y subiéndolo
+// Si se cargó localmente y luego se conecta el servidor, sincronizar directamente al servidor
 async function sincronizarInvitadosAlServidor() {
   if (!backendOnline || allGuests.length === 0) return;
   try {
-    const rows = allGuests.map(g => ({
-      Nombre: g.nombre || '',
-      Telefono: g.telefono || '',
-      Pases: g.pases || '1',
-      Mesa: g.mesa || '',
-      CodigoAcceso: g.codigo || ''
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const formData = new FormData();
-    formData.append('excelFile', blob, 'invitados_sync.xlsx');
-    await fetch(`${API_BASE}/api/upload-excel`, { method: 'POST', body: formData });
+    await fetch(`${API_BASE}/api/sync-guests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guests: allGuests })
+    });
   } catch (e) {}
 }
 
@@ -397,9 +392,38 @@ function finalizarCargaInvitados(fileName) {
   });
   renderGuestsTable(allGuests);
   renderInitialResultsTable(allGuests);
+  // Restaurar estados previos en la tabla de resultados si los hubiera
+  const existingResults = allGuests
+    .filter(g => g.estado === 'Enviado' || g.estado === 'Error')
+    .map(g => ({
+      id: g.id,
+      nombre: g.nombre,
+      telefono: g.telefono,
+      pases: g.pases,
+      estado: g.estado === 'Enviado' ? 'EXITOSO' : 'ERROR',
+      motivo: g.motivo || (g.estado === 'Enviado' ? 'Entregado con QR' : 'Fallo'),
+      hora: g.horaEnvio || '-'
+    }));
+  if (existingResults.length > 0) {
+    updateResultsTable(existingResults);
+    const enviados = allGuests.filter(g => g.estado === 'Enviado').length;
+    const errores = allGuests.filter(g => g.estado === 'Error').length;
+    statSent.textContent = enviados;
+    statErrors.textContent = errores;
+    statPending.textContent = Math.max(0, allGuests.length - enviados - errores);
+  } else {
+    statSent.textContent = '0';
+    statErrors.textContent = '0';
+    statPending.textContent = allGuests.length;
+  }
+
+  if (btnDownloadCurrentList) btnDownloadCurrentList.classList.remove('hidden');
+  if (btnClearAllData) btnClearAllData.classList.remove('hidden');
+
   updatePreviewWhatsApp();
   renderDoorTable();
   guardarEstadoLocal();
+  sincronizarInvitadosAlServidor();
 
   dropZoneExcel.innerHTML = `
     <div class="text-emerald-700 font-semibold text-xs flex items-center justify-center space-x-1.5">
@@ -454,7 +478,7 @@ searchGuest.addEventListener('input', (e) => {
   renderGuestsTable(filtered);
 });
 
-// Descargar plantilla de Excel
+// Descargar plantilla de Excel (ejemplo vacío de 3 filas)
 btnDownloadTemplate.addEventListener('click', () => {
   const sample = [
     { Nombre: 'Lic. Roberto González y Familia', Telefono: '5512345678', Pases: 3, Mesa: 'Mesa 4', CodigoAcceso: 'BODA-RG-001' },
@@ -467,6 +491,78 @@ btnDownloadTemplate.addEventListener('click', () => {
   XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
   XLSX.writeFile(wb, 'Plantilla_Invitados_Boda.xlsx');
 });
+
+// Descargar la lista de invitados cargada actualmente en el sistema
+if (btnDownloadCurrentList) {
+  btnDownloadCurrentList.addEventListener('click', () => {
+    if (!allGuests || allGuests.length === 0) {
+      alert('No hay ninguna lista de invitados cargada en este momento.');
+      return;
+    }
+    const rows = allGuests.map(g => ({
+      Nombre: g.nombre || '',
+      Telefono: g.telefono || '',
+      Pases: g.pases || '1',
+      Mesa: g.mesa || '',
+      CodigoAcceso: g.codigo || '',
+      EstadoEnvio: g.estado || 'Pendiente'
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 34 }, { wch: 18 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 15 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Invitados_Actuales');
+    const fecha = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Lista_Invitados_Cargada_${allGuests.length}_registros_${fecha}.xlsx`);
+    mostrarNotificacionToast(`💾 Descargada lista actual con ${allGuests.length} invitados.`);
+  });
+}
+
+// Limpiar toda la lista de invitados y datos guardados
+if (btnClearAllData) {
+  btnClearAllData.addEventListener('click', async () => {
+    if (!confirm('¿Estás seguro de borrar la lista actual de invitados y todos los resultados guardados para dejar el sistema en cero?')) {
+      return;
+    }
+
+    allGuests = [];
+    teamAssignments = [];
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+
+    if (backendOnline) {
+      try { await fetch(`${API_BASE}/api/clear-all`, { method: 'POST' }); } catch (e) {}
+    }
+
+    excelSummaryBox.classList.add('hidden');
+    btnDownloadCurrentList.classList.add('hidden');
+    btnClearAllData.classList.add('hidden');
+    if (btnRetryFailed) btnRetryFailed.classList.add('hidden');
+    if (testBatchFeedback) testBatchFeedback.classList.add('hidden');
+    if (teamTabsContainer) teamTabsContainer.classList.add('hidden');
+
+    guestsTableBody.innerHTML = '';
+    resultsTableBody.innerHTML = `<tr><td colspan="7" class="px-3 py-6 text-center text-slate-400">Carga tu archivo Excel en el paso 3 para ver la lista de seguimiento aquí.</td></tr>`;
+    if (doorGuestsTbody) {
+      doorGuestsTbody.innerHTML = `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400">Carga primero tu lista de invitados en la vista principal.</td></tr>`;
+    }
+
+    statSent.textContent = '0';
+    statErrors.textContent = '0';
+    statPending.textContent = '0';
+    progressBar.style.width = '0%';
+    progressLabel.textContent = 'Progreso general: 0%';
+    progressCounts.textContent = '0 / 0 procesados';
+    liveLogBox.innerHTML = '<div class="text-slate-500">Esperando inicio de envíos...</div>';
+
+    dropZoneExcel.innerHTML = `
+      <div class="text-2xl mb-1">📂</div>
+      <p class="text-xs font-semibold text-slate-700">Haz clic aquí o arrastra tu archivo Excel (.xlsx, .xls, .csv)</p>
+      <p class="text-[11px] text-slate-400 mt-1">Columnas: <b>Nombre</b>, <b>Telefono</b>, <b>Pases</b>, <b>Mesa</b>, <b>CodigoAcceso</b></p>
+    `;
+    inputExcelFile.value = '';
+    updatePreviewWhatsApp();
+    mostrarNotificacionToast('🗑️ Lista y datos de envío limpiados por completo.');
+  });
+}
 
 // Generador de Lote de Prueba (15-20 registros)
 btnLoadTestBatch.addEventListener('click', async () => {
@@ -659,6 +755,7 @@ btnSendTest.addEventListener('click', async () => {
         templatePersonalizado: tplPersonalizado.value,
         templateGenerico: tplGenerico.value,
         qrMode,
+        customQrDataUrl,
         defaultCountry
       })
     });
@@ -800,6 +897,7 @@ btnStartSending.addEventListener('click', async () => {
         templatePersonalizado: tplPersonalizado.value,
         templateGenerico: tplGenerico.value,
         qrMode,
+        customQrDataUrl,
         delaySeconds,
         defaultCountry,
         notifySupervisor,
@@ -946,27 +1044,77 @@ function startProgressPolling() {
   }, 1500);
 }
 
-// Descargar Reporte de Envíos
-btnDownloadReport.addEventListener('click', () => {
-  if (backendOnline) {
-    window.open(`${API_BASE}/api/export-report`, '_blank');
-    return;
-  }
+// Reiniciar resultados de envío (dejar invitados en Pendiente sin borrar la lista)
+if (btnResetSending) {
+  btnResetSending.addEventListener('click', async () => {
+    if (allGuests.length === 0) {
+      alert('No hay invitados cargados actualmente.');
+      return;
+    }
+    if (!confirm('¿Deseas limpiar los resultados de envío, contadores y bitácora para regresar a todos los invitados al estado "Pendiente"?')) {
+      return;
+    }
+
+    if (backendOnline) {
+      try { await fetch(`${API_BASE}/api/reset-sending`, { method: 'POST' }); } catch (e) {}
+    }
+
+    allGuests.forEach(g => {
+      g.estado = 'Pendiente';
+      g.resultado = '';
+      g.motivo = '';
+      g.horaEnvio = '';
+    });
+
+    statSent.textContent = '0';
+    statErrors.textContent = '0';
+    statPending.textContent = allGuests.length;
+    progressBar.style.width = '0%';
+    progressLabel.textContent = 'Progreso general: 0%';
+    progressCounts.textContent = `0 / ${allGuests.length} procesados`;
+    liveLogBox.innerHTML = '<div class="text-slate-500">Resultados limpiados. Listo para nuevo envío...</div>';
+    if (btnRetryFailed) btnRetryFailed.classList.add('hidden');
+
+    renderInitialResultsTable(allGuests);
+    guardarEstadoLocal();
+    sincronizarInvitadosAlServidor();
+    mostrarNotificacionToast('🧹 Resultados reiniciados a Pendiente.');
+  });
+}
+
+// Descargar Reporte de Envíos (siempre sincronizado con los invitados en pantalla)
+btnDownloadReport.addEventListener('click', async () => {
   if (allGuests.length === 0) {
-    alert('No hay invitados cargados.');
+    alert('No hay invitados cargados para generar el reporte.');
     return;
   }
+
+  // Generar directamente desde la lista actual en memoria para garantizar que nunca salga vacío ni desincronizado
   const rows = allGuests.map((g, idx) => ({
     'No.': idx + 1,
     'Nombre del Invitado': g.nombre || '(Sin nombre - Mensaje formal)',
-    'Teléfono': g.telefono,
+    'Teléfono': g.telefono || '-',
     'Pases': g.pases || '1',
     'Mesa': g.mesa || '-',
+    'Código QR': g.codigo || '-',
+    'Tipo de Invitación': g.tipoMensaje || (g.nombre ? 'Personalizado' : 'Formal Genérico'),
     'Estado de Envío': g.estado || 'Pendiente',
-    'Detalle': g.motivo || '-',
-    'Hora': g.horaEnvio || '-'
+    'Motivo o Detalle': g.motivo || g.resultado || (g.estado === 'Enviado' ? 'Entregado con QR' : '-'),
+    'Hora de Envío': g.horaEnvio || '-'
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 6 },
+    { wch: 32 },
+    { wch: 18 },
+    { wch: 8 },
+    { wch: 12 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 15 },
+    { wch: 28 },
+    { wch: 15 }
+  ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte de Envíos');
   XLSX.writeFile(wb, `Reporte_Invitaciones_Boda_${new Date().toISOString().slice(0, 10)}.xlsx`);

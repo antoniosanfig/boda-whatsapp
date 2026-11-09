@@ -174,10 +174,21 @@ async function initWhatsApp(forceNew = false) {
 // Iniciar WhatsApp al arrancar
 initWhatsApp(false);
 
+// Limpiar número de teléfono proveniente de Excel (quita decimales .0, espacios, guiones, etc.)
+function limpiarTelefono(rawPhone) {
+  if (rawPhone === null || rawPhone === undefined) return '';
+  let str = String(rawPhone).trim();
+  // Si Excel exportó el número con punto decimal (ej. 5512345678.0), quitar la parte decimal
+  if (/^\d+\.0+$/.test(str)) {
+    str = str.split('.')[0];
+  }
+  return str.replace(/\D/g, '');
+}
+
 // Función para normalizar y resolver número de WhatsApp
 async function resolveWhatsAppJid(rawPhone, defaultCountry = '52') {
   if (!rawPhone) return null;
-  let digits = String(rawPhone).replace(/\D/g, '');
+  let digits = limpiarTelefono(rawPhone);
   if (!digits) return null;
 
   // Si tiene 10 dígitos (común en México), anteponer código de país
@@ -276,8 +287,8 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
       );
 
       const rawNombre = nombreKey ? String(row[nombreKey]).trim() : '';
-      const rawTelefono = telefonoKey ? String(row[telefonoKey]).trim() : '';
-      const pases = pasesKey && String(row[pasesKey]).trim() ? String(row[pasesKey]).trim() : '1';
+      const rawTelefono = telefonoKey ? limpiarTelefono(row[telefonoKey]) : '';
+      const pases = pasesKey && String(row[pasesKey]).trim() ? String(row[pasesKey]).trim().replace(/\.0+$/, '') : '1';
       const mesa = mesaKey && String(row[mesaKey]).trim() ? String(row[mesaKey]).trim() : '';
       const codigo = codigoKey && String(row[codigoKey]).trim()
         ? String(row[codigoKey]).trim()
@@ -301,6 +312,17 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
     });
 
     currentGuests = guests;
+    sendingState = {
+      isRunning: false,
+      isPaused: false,
+      shouldStop: false,
+      currentIndex: 0,
+      total: guests.length,
+      sentCount: 0,
+      errorCount: 0,
+      results: [],
+      logs: []
+    };
 
     const total = guests.length;
     const conNombre = guests.filter(g => g.tipoMensaje === 'Personalizado').length;
@@ -381,8 +403,19 @@ app.post('/api/generate-test-batch', (req, res) => {
     }
 
     const numCount = parseInt(count, 10) || 15;
-    const guests = generarListaPrueba(String(phone).trim(), numCount);
+    const guests = generarListaPrueba(limpiarTelefono(phone), numCount);
     currentGuests = guests;
+    sendingState = {
+      isRunning: false,
+      isPaused: false,
+      shouldStop: false,
+      currentIndex: 0,
+      total: guests.length,
+      sentCount: 0,
+      errorCount: 0,
+      results: [],
+      logs: []
+    };
 
     const total = guests.length;
     const conNombre = guests.filter(g => g.tipoMensaje === 'Personalizado').length;
@@ -503,6 +536,7 @@ app.post('/api/send-test', async (req, res) => {
       templatePersonalizado,
       templateGenerico,
       qrMode = 'individual',
+      customQrDataUrl = null,
       defaultCountry = '52'
     } = req.body;
 
@@ -527,6 +561,9 @@ app.post('/api/send-test', async (req, res) => {
     let imageBuffer = null;
     if (qrMode === 'custom' && customQRImagePath && fs.existsSync(customQRImagePath)) {
       imageBuffer = fs.readFileSync(customQRImagePath);
+    } else if (qrMode === 'custom' && customQrDataUrl && String(customQrDataUrl).includes('base64,')) {
+      const b64 = String(customQrDataUrl).split('base64,')[1];
+      imageBuffer = Buffer.from(b64, 'base64');
     } else {
       const contenidoQR = JSON.stringify({
         evento: 'Boda - Pase de Prueba',
@@ -590,6 +627,7 @@ app.post('/api/start-sending', async (req, res) => {
       templatePersonalizado,
       templateGenerico,
       qrMode = 'individual',
+      customQrDataUrl = null,
       delaySeconds = 7,
       defaultCountry = '52',
       notifySupervisor = false,
@@ -620,6 +658,7 @@ app.post('/api/start-sending', async (req, res) => {
       templatePersonalizado,
       templateGenerico,
       qrMode,
+      customQrDataUrl,
       delaySeconds: Math.max(3, Number(delaySeconds) || 7),
       defaultCountry,
       notifySupervisor: Boolean(notifySupervisor),
@@ -757,6 +796,9 @@ async function ejecutarEnviosEnCola(config, guestList = currentGuests) {
       let imageBuffer = null;
       if (qrMode === 'custom' && customQRImagePath && fs.existsSync(customQRImagePath)) {
         imageBuffer = fs.readFileSync(customQRImagePath);
+      } else if (qrMode === 'custom' && config.customQrDataUrl && String(config.customQrDataUrl).includes('base64,')) {
+        const b64 = String(config.customQrDataUrl).split('base64,')[1];
+        imageBuffer = Buffer.from(b64, 'base64');
       } else {
         const contenidoQR = JSON.stringify({
           evento: 'Boda - Acceso Jardín',
@@ -901,6 +943,58 @@ app.post('/api/pause-sending', (req, res) => {
   sendingState.isPaused = true;
   logEvento('⏸ Envíos pausados temporalmente.');
   res.json({ success: true, message: 'Envíos pausados' });
+});
+
+// Sincronizar lista de invitados desde el navegador hacia el servidor
+app.post('/api/sync-guests', (req, res) => {
+  try {
+    const { guests } = req.body;
+    if (Array.isArray(guests)) {
+      currentGuests = guests;
+    }
+    res.json({ success: true, total: currentGuests.length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reiniciar únicamente los resultados de envío (volver todos a Pendiente sin borrar la lista)
+app.post('/api/reset-sending', (req, res) => {
+  sendingState = {
+    isRunning: false,
+    isPaused: false,
+    shouldStop: false,
+    currentIndex: 0,
+    total: currentGuests.length,
+    sentCount: 0,
+    errorCount: 0,
+    results: [],
+    logs: []
+  };
+  currentGuests.forEach(g => {
+    g.estado = 'Pendiente';
+    g.resultado = '';
+    g.motivo = '';
+    g.horaEnvio = '';
+  });
+  res.json({ success: true, message: 'Resultados de envío reiniciados a Pendiente.' });
+});
+
+// Limpiar absolutamente toda la lista y datos de envío en el servidor
+app.post('/api/clear-all', (req, res) => {
+  currentGuests = [];
+  sendingState = {
+    isRunning: false,
+    isPaused: false,
+    shouldStop: false,
+    currentIndex: 0,
+    total: 0,
+    sentCount: 0,
+    errorCount: 0,
+    results: [],
+    logs: []
+  };
+  res.json({ success: true, message: 'Lista y datos de envío eliminados por completo.' });
 });
 
 // Reanudar envíos

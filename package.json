@@ -1,0 +1,19 @@
+{
+  "name": "boda-invitaciones-github-cloud",
+  "version": "1.0.0",
+  "description": "Sistema Completo de Invitaciones de Boda por WhatsApp (Envío Automático + Plan B + Escáner QR en Recepción) listo para GitHub Pages y Cloud",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "pino": "^10.4.0",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5"
+  }
+}
+

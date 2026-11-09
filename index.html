@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Completo de Invitaciones de Boda por WhatsApp</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS (Procesamiento y Exportación Excel) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <!-- Generador de QR -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <!-- Escáner de QR con Cámara para Recepción -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-serif-title { font-family: 'Playfair Display', serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- ==========================================
+       BARRA SUPERIOR / ENCABEZADO
+       ========================================== -->
+  <header class="bg-white border-b border-rose-100 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xl shadow-sm">
+          💍
+        </div>
+        <div>
+          <h1 class="font-serif-title font-bold text-slate-900 text-lg leading-tight">
+            Invitaciones de Boda • Sistema Integral WhatsApp
+          </h1>
+          <p class="text-xs text-slate-500">
+            Envío Automático • Supervisión en Vivo • Plan B en Equipo • Escáner QR de Recepción
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Estado de WhatsApp -->
+        <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
+          <span id="wa-indicator" class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+          <span id="wa-header-text" class="text-xs font-semibold text-slate-700">Conectando...</span>
+        </div>
+
+        <!-- Botón Configurar Servidor Backend (oculto por defecto porque la app corre su propio servidor Node.js integrado) -->
+        <button type="button" id="btn-toggle-server-config" class="hidden text-xs font-medium text-slate-600 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 px-3 py-1.5 rounded-full border border-slate-200 transition-colors" title="Configurar dirección del servidor de WhatsApp">
+          ⚙️ Servidor
+        </button>
+
+        <!-- Selector de Vista Principal -->
+        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button type="button" id="nav-btn-main" class="px-3.5 py-1 rounded-lg text-xs font-bold bg-rose-600 text-white shadow-xs transition-all">
+            🚀 Envíos y Plan B
+          </button>
+          <button type="button" id="nav-btn-recepcion" class="px-3.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">
+            🌿 Recepción QR
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra desplegable para configurar URL del Servidor cuando se abre desde GitHub Pages -->
+    <div id="server-config-bar" class="hidden bg-slate-900 text-slate-100 px-4 py-3 border-t border-slate-800">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div class="space-y-0.5">
+          <span class="font-bold text-rose-400 block">🌐 Conexión con el Motor de Envío Automático (Servidor Node.js)</span>
+          <span class="text-slate-400 text-[11px]">Si abres esta página desde GitHub Pages, ingresa la URL de tu servidor (ej. Render, Railway, Ngrok o <code class="text-slate-200">http://localhost:3000</code> si corre en tu PC).</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <input type="text" id="input-api-url" placeholder="http://localhost:3000" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-white w-64 focus:ring-1 focus:ring-rose-500">
+          <button type="button" id="btn-save-api-url" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition-colors">
+            Conectar
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================
+       CONTENIDO PRINCIPAL
+       ========================================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-8">
+
+    <!-- ==========================================
+         VISTA 1: SISTEMA COMPLETO (ENVÍO AUTOMÁTICO + PLAN B)
+         ========================================== -->
+    <div id="view-main" class="space-y-8">
+
+      <!-- FILA SUPERIOR: 2 COLUMNAS (5 cols Izquierda / 7 cols Derecha) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- COLUMNA IZQUIERDA (5 cols): 1. Celular Remitente y 2. QR Jardín -->
+        <div class="lg:col-span-5 space-y-6">
+
+          <!-- TARJETA 1: Celular Remitente (WhatsApp QR) -->
+          <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-lg">📱</span>
+                <h2 class="font-bold text-slate-900 text-base">1. Celular Remitente (Envío Automático)</h2>
+              </div>
+              <button type="button" id="btn-wa-refresh" class="text-xs text-rose-600 hover:text-rose-700 font-medium hover:underline">
+                Actualizar
+              </button>
+            </div>
+
+            <div class="mt-5 space-y-4">
+              <!-- Aviso cuando el servidor backend no está conectado -->
+              <div id="wa-offline-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 space-y-2">
+                <div class="font-bold flex items-center space-x-1.5">
+                  <span>⚡</span>
+                  <span>Modo Web Estático Activo (Sin servidor conectado)</span>
+                </div>
+                <p class="text-[11px] text-amber-800 leading-relaxed">
+                  El <b>Plan B (Envío en Equipo)</b> y el <b>Escáner de Recepción</b> funcionan al 100% aquí mismo sin servidor. Para usar el <b>Envío Automático</b>, asegúrate de tener iniciado <code class="bg-amber-100 px-1 rounded">iniciar.bat</code> o conecta la URL de tu servidor en el botón <b>"⚙️ Servidor"</b> arriba.
+                </p>
+              </div>
+
+              <!-- Estado: Conectado -->
+              <div id="wa-connected-box" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                <div class="w-12 h-12 mx-auto bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl mb-2">
+                  ✓
+                </div>
+                <p class="text-xs uppercase font-semibold text-emerald-700 tracking-wider">Celular Vinculado</p>
+                <p id="wa-connected-phone" class="text-lg font-bold text-slate-900 mt-0.5">+52 ...</p>
+                <p class="text-xs text-slate-500 mt-1">Listo para enviar automáticamente todas las invitaciones desde esta línea.</p>
+
+                <div class="mt-4 pt-3 border-t border-emerald-200/60">
+                  <button type="button" id="btn-wa-logout" class="text-xs text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 border border-red-200">
+                    Desvincular / Cambiar Celular
+                  </button>
+                </div>
+              </div>
+
+              <!-- Estado: Escanear QR -->
+              <div id="wa-qr-box" class="space-y-4 text-center">
+                <div class="bg-rose-50/50 rounded-xl p-4 border border-rose-100">
+                  <p class="text-sm font-semibold text-slate-800">Escanea este código con WhatsApp</p>
+                  <ol class="text-xs text-slate-600 mt-2 space-y-1 text-left list-decimal list-inside bg-white p-3 rounded-lg border border-slate-100">
+                    <li>Abre WhatsApp en el celular que enviará las invitaciones.</li>
+                    <li>Toca <b>Menú</b> (⋮) o <b>Configuración</b> &gt; <b>Dispositivos vinculados</b>.</li>
+                    <li>Selecciona <b>Vincular un dispositivo</b> y apunta la cámara:</li>
+                  </ol>
+                </div>
+
+                <div class="flex flex-col items-center justify-center py-2">
+                  <div id="wa-qr-container" class="w-64 h-64 bg-white rounded-xl border border-slate-200 flex items-center justify-center shadow-inner overflow-hidden p-2">
+                    <div class="animate-pulse text-xs text-slate-400 px-4">Conectando con el servidor para generar QR...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TARJETA 2: QR de Acceso al Jardín -->
+          <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6">
+            <div class="flex items-center space-x-2.5 pb-4 border-b border-slate-100">
+              <span class="text-lg">🌿</span>
+              <h2 class="font-bold text-slate-900 text-base">2. QR de Acceso al Jardín</h2>
+            </div>
+
+            <div class="mt-4 space-y-4">
+              <p class="text-xs text-slate-600">
+                Cada mensaje incluirá la imagen de acceso que los invitados mostrarán al llegar al jardín:
+              </p>
+
+              <div class="space-y-2">
+                <label class="flex items-start space-x-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <input type="radio" name="qrMode" value="individual" checked class="mt-0.5 text-rose-600 focus:ring-rose-500">
+                  <div>
+                    <span class="text-xs font-bold text-slate-800 block">Generar QR individual por invitado (Recomendado)</span>
+                    <span class="text-xs text-slate-500 block mt-0.5">Codifica el nombre, pases asignados, mesa y folio para validar en la recepción.</span>
+                  </div>
+                </label>
+
+                <label class="flex items-start space-x-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <input type="radio" name="qrMode" value="custom" class="mt-0.5 text-rose-600 focus:ring-rose-500">
+                  <div>
+                    <span class="text-xs font-bold text-slate-800 block">Subir imagen fija del QR del Jardín</span>
+                    <span class="text-xs text-slate-500 block mt-0.5">Si el jardín o salón ya te entregó un diseño o pase oficial en imagen.</span>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Subida de imagen QR personalizada -->
+              <div id="custom-qr-upload-box" class="hidden pt-2 border-t border-slate-100 space-y-3">
+                <input type="file" id="input-qr-image" accept="image/*" class="hidden">
+                <button type="button" onclick="document.getElementById('input-qr-image').click()" class="w-full border-2 border-dashed border-rose-300 rounded-xl p-4 text-center hover:bg-rose-50/40 transition-colors">
+                  <span class="text-xs font-semibold text-rose-700 block">📷 Seleccionar imagen del QR del Jardín</span>
+                  <span class="text-[11px] text-slate-400 block mt-1">PNG, JPG, JPEG</span>
+                </button>
+
+                <div id="preview-custom-qr" class="hidden flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border">
+                  <img id="img-custom-qr" src="" alt="QR Jardín" class="w-16 h-16 object-contain rounded-lg border bg-white">
+                  <div class="flex-1 text-xs">
+                    <p class="font-bold text-slate-800">Imagen cargada</p>
+                    <p class="text-slate-500 text-[11px]">Se enviará esta imagen a todos.</p>
+                  </div>
+                  <button type="button" id="btn-remove-qr-image" class="text-red-600 hover:text-red-700 text-xs font-medium">Quitar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- COLUMNA DERECHA (7 cols): 3. Carga de Excel y 4. Plantillas -->
+        <div class="lg:col-span-7 space-y-6">
+
+          <!-- TARJETA 3: Cargar Lista de Invitados (Excel) -->
+          <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-lg">📊</span>
+                <h2 class="font-bold text-slate-900 text-base">3. Cargar Lista de Invitados (Excel)</h2>
+              </div>
+              <button type="button" id="btn-download-template" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-3 py-1.5 rounded-lg border border-rose-200 transition-colors flex items-center space-x-1">
+                <span>📥 Descargar Plantilla Excel</span>
+              </button>
+            </div>
+
+            <div class="mt-4 space-y-4">
+              <input type="file" id="input-excel-file" accept=".xlsx,.xls,.csv" class="hidden">
+              <div id="drop-zone-excel" class="border-2 border-dashed border-slate-300 hover:border-rose-400 rounded-2xl p-5 text-center cursor-pointer bg-slate-50/50 hover:bg-rose-50/20 transition-all">
+                <div class="text-2xl mb-1">📂</div>
+                <p class="text-xs font-semibold text-slate-700">Haz clic aquí o arrastra tu archivo Excel (.xlsx, .xls, .csv)</p>
+                <p class="text-[11px] text-slate-400 mt-1">Columnas: <b>Nombre</b>, <b>Telefono</b>, <b>Pases</b>, <b>Mesa</b>, <b>CodigoAcceso</b></p>
+              </div>
+
+              <!-- Generador de Lote de Pruebas (15 - 20 registros) -->
+              <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="text-sm">⚡</span>
+                    <span class="text-xs font-bold text-amber-900">Generar Lote de Prueba (15 - 20 invitaciones a un número)</span>
+                  </div>
+                  <span class="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full font-semibold">Simulación Completa</span>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="text" id="input-test-batch-phone" placeholder="Teléfono destino (ej. 5512345678)" class="text-xs border border-amber-300 rounded-lg px-3 py-1.5 flex-1 bg-white">
+                  <select id="select-test-batch-count" class="text-xs border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white font-semibold text-slate-700">
+                    <option value="15">15 registros</option>
+                    <option value="20">20 registros</option>
+                    <option value="5">5 registros (rápido)</option>
+                  </select>
+                  <button type="button" id="btn-load-test-batch" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-xs transition-colors whitespace-nowrap">
+                    🚀 Cargar Lote
+                  </button>
+                </div>
+                <div id="test-batch-feedback" class="hidden text-xs font-medium"></div>
+              </div>
+
+              <!-- Resumen del Excel cargado -->
+              <div id="excel-summary-box" class="hidden space-y-3 pt-2">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div class="bg-slate-50 p-2.5 rounded-xl border text-center">
+                    <span class="text-[11px] text-slate-500 block">Total Invitados</span>
+                    <span id="sum-total" class="text-lg font-bold text-slate-800">0</span>
+                  </div>
+                  <div class="bg-rose-50/60 p-2.5 rounded-xl border border-rose-100 text-center">
+                    <span class="text-[11px] text-rose-700 block">Personalizados</span>
+                    <span id="sum-con-nombre" class="text-lg font-bold text-rose-700">0</span>
+                  </div>
+                  <div class="bg-amber-50/60 p-2.5 rounded-xl border border-amber-100 text-center">
+                    <span class="text-[11px] text-amber-700 block">Formales (Sin nombre)</span>
+                    <span id="sum-sin-nombre" class="text-lg font-bold text-amber-700">0</span>
+                  </div>
+                  <div class="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100 text-center">
+                    <span class="text-[11px] text-emerald-700 block">Con Teléfono</span>
+                    <span id="sum-con-telefono" class="text-lg font-bold text-emerald-700">0</span>
+                  </div>
+                </div>
+
+                <!-- Tabla previa de invitados -->
+                <div class="border rounded-xl overflow-hidden">
+                  <div class="bg-slate-100 px-3 py-2 border-b flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-700">Vista Previa de Invitados</span>
+                    <input type="text" id="search-guest" placeholder="Buscar invitado..." class="text-xs bg-white border rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-rose-400">
+                  </div>
+                  <div class="max-h-48 overflow-y-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-xs">
+                      <thead class="bg-slate-50 sticky top-0">
+                        <tr>
+                          <th class="px-3 py-2 text-left font-semibold text-slate-600">#</th>
+                          <th class="px-3 py-2 text-left font-semibold text-slate-600">Nombre</th>
+                          <th class="px-3 py-2 text-left font-semibold text-slate-600">Teléfono</th>
+                          <th class="px-3 py-2 text-center font-semibold text-slate-600">Pases</th>
+                          <th class="px-3 py-2 text-left font-semibold text-slate-600">Tipo Mensaje</th>
+                        </tr>
+                      </thead>
+                      <tbody id="guests-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- TARJETA 4: Plantillas de Invitación -->
+          <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-lg">💌</span>
+                <h2 class="font-bold text-slate-900 text-base">4. Plantillas de Invitación</h2>
+              </div>
+              <span class="text-[11px] text-slate-400">Variables: <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{nombre}</code> <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{pases}</code> <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{mesa}</code></span>
+            </div>
+
+            <div class="mt-4">
+              <div class="flex space-x-2 border-b border-slate-200">
+                <button type="button" id="tab-btn-personalizado" class="pb-2 text-xs font-bold border-b-2 border-rose-600 text-rose-600 transition-colors">
+                  ✨ Mensaje Personalizado (con nombre)
+                </button>
+                <button type="button" id="tab-btn-generico" class="pb-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors">
+                  🏛 Mensaje Formal Genérico (sin nombre)
+                </button>
+              </div>
+
+              <!-- Personalizado -->
+              <div id="tab-content-personalizado" class="mt-4 space-y-2">
+                <textarea id="tpl-personalizado" rows="6" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">✨ ¡Hola, {nombre}! ✨
+
+Nos llena de inmensa felicidad invitarte a compartir con nosotros uno de los días más importantes de nuestras vidas: ¡Nuestra Boda! 💍👰🤵
+
+🌿 Acceso al Jardín:
+Presenta el código QR adjunto a este mensaje en la entrada para validar tu ingreso al jardín del evento.
+
+{detalle_pases}
+{detalle_mesa}
+
+¡Esperamos de todo corazón contar con tu compañía y celebrar juntos este gran momento! ❤️🥂</textarea>
+              </div>
+
+              <!-- Formal Genérico -->
+              <div id="tab-content-generico" class="mt-4 space-y-2 hidden">
+                <textarea id="tpl-generico" rows="6" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">Estimado/a invitado/a de honor:
+
+Nos llena de inmensa alegría y distinción hacerle llegar nuestra más cordial invitación a celebrar la unión de nuestras vidas en sagrado matrimonio. 💍👰🤵
+
+Será un verdadero honor y privilegio contar con su distinguida presencia en esta fecha tan especial e inolvidable.
+
+🌿 Acceso al Jardín:
+Le adjuntamos su código QR personal para el acceso al jardín del evento. Favor de presentarlo en la recepción a su llegada.
+
+{detalle_pases}
+{detalle_mesa}
+
+Agradecemos de antemano el honor de su compañía y sus valiosos buenos deseos. Reciba un cordial y afectuoso saludo. ✨🥂</textarea>
+              </div>
+
+              <!-- Vista Previa estilo WhatsApp -->
+              <div class="mt-4 pt-4 border-t border-slate-100">
+                <button type="button" id="btn-toggle-preview" class="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center space-x-1">
+                  <span>👁 Ver Vista Previa de WhatsApp</span>
+                </button>
+
+                <div id="whatsapp-preview-card" class="hidden mt-3 max-w-sm mx-auto bg-[#e5ddd5] p-3 rounded-2xl shadow-xs border border-slate-300">
+                  <div class="bg-white rounded-xl shadow-xs overflow-hidden p-2.5 space-y-2">
+                    <div class="w-full h-40 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                      <img id="preview-wa-qr-img" src="" alt="QR" class="h-36 w-36 object-contain">
+                    </div>
+                    <div id="preview-wa-text" class="text-xs text-slate-800 whitespace-pre-line leading-relaxed"></div>
+                    <div class="text-[10px] text-slate-400 text-right">12:00 p.m. ✓✓</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Caja de Envío de Prueba a Celular -->
+              <div class="mt-4 pt-4 border-t border-slate-100 bg-rose-50/40 p-4 rounded-xl border border-rose-100">
+                <div class="flex items-center space-x-2 mb-2">
+                  <span class="text-sm">🧪</span>
+                  <span class="text-xs font-bold text-slate-800">Enviar Mensaje de Prueba a mi Celular</span>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="text" id="test-phone-input" placeholder="Tu número (ej. 5512345678)" class="text-xs border rounded-lg px-3 py-2 flex-1 bg-white">
+                  <input type="text" id="test-name-input" placeholder="Nombre para la prueba (opcional)" class="text-xs border rounded-lg px-3 py-2 flex-1 bg-white">
+                  <button type="button" id="btn-send-test" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-xs transition-colors whitespace-nowrap">
+                    📲 Enviar Prueba
+                  </button>
+                </div>
+                <div id="test-feedback" class="hidden text-xs mt-2 font-medium"></div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ==========================================
+           SECCIÓN 5: ENVÍOS AUTOMÁTICOS Y MONITOREO EN TIEMPO REAL
+           ========================================== -->
+      <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="font-bold text-slate-900 text-lg flex items-center space-x-2">
+              <span>🚀 5. Envíos Automáticos y Monitoreo en Tiempo Real</span>
+            </h2>
+            <p class="text-xs text-slate-500">Envío automático con pausas anti-bloqueo, alertas a tu WhatsApp y reporte de entregas.</p>
+          </div>
+
+          <div class="flex items-center space-x-4 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 text-xs">
+            <div>
+              <label class="text-slate-600 block text-[11px]">Intervalo seguro:</label>
+              <select id="select-delay" class="bg-white border rounded px-2 py-1 font-semibold text-slate-800">
+                <option value="5">5 seg</option>
+                <option value="7" selected>7 seg (Recomendado)</option>
+                <option value="10">10 seg (Extra seguro)</option>
+                <option value="15">15 seg</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-slate-600 block text-[11px]">País predeterminado:</label>
+              <input type="text" id="input-country" value="52" class="w-14 bg-white border rounded px-2 py-1 font-semibold text-slate-800 text-center">
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuración de Notificaciones al Supervisor por WhatsApp -->
+        <div class="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <label class="flex items-center space-x-2.5 cursor-pointer">
+              <input type="checkbox" id="check-notify-supervisor" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300">
+              <span class="text-xs font-bold text-slate-800">📲 Recibir notificaciones de resultados en mi propio WhatsApp</span>
+            </label>
+            <span class="text-[11px] text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full font-medium">Supervisión en Vivo</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2 border-t border-indigo-100 text-xs">
+            <div class="md:col-span-6 flex flex-col space-y-1">
+              <div class="flex justify-between items-center">
+                <label class="text-slate-600 font-medium">Número para recibir alertas:</label>
+                <button type="button" id="btn-use-connected-phone" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold underline">
+                  Usar celular vinculado
+                </button>
+              </div>
+              <input type="text" id="input-supervisor-phone" placeholder="Ej. 5512345678" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800">
+            </div>
+
+            <div class="md:col-span-6 flex flex-col space-y-1">
+              <label class="text-slate-600 font-medium">Modalidad de alertas:</label>
+              <select id="select-notify-mode" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-800">
+                <option value="errors_only" selected>⚠️ Solo Alertas de Error + Resumen Final (Recomendado)</option>
+                <option value="all">🔔 Todos los envíos (Éxitos y Errores en vivo)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de Control de Envío Automático -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button type="button" id="btn-start-sending" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-xs transition-all flex items-center space-x-2">
+              <span>▶ Iniciar Envío Automático</span>
+            </button>
+            <button type="button" id="btn-pause-sending" disabled class="bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl disabled:opacity-40">
+              ⏸ Pausar
+            </button>
+            <button type="button" id="btn-resume-sending" disabled class="hidden bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl">
+              ▶ Reanudar
+            </button>
+            <button type="button" id="btn-stop-sending" disabled class="bg-red-500 hover:bg-red-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl disabled:opacity-40">
+              🛑 Cancelar
+            </button>
+            <button type="button" id="btn-retry-failed" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-xs flex items-center space-x-1.5">
+              <span>🔄 Reintentar solo Fallidos</span>
+              <span id="retry-failed-count" class="bg-indigo-800 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">0</span>
+            </button>
+          </div>
+
+          <button type="button" id="btn-download-report" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center space-x-1.5 shadow-xs">
+            <span>📥 Descargar Reporte de Envíos (.xlsx)</span>
+          </button>
+        </div>
+
+        <!-- Barra de Progreso -->
+        <div class="space-y-2">
+          <div class="flex justify-between text-xs font-semibold text-slate-700">
+            <span id="progress-label">Progreso general: 0%</span>
+            <span id="progress-counts">0 / 0 procesados</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden border">
+            <div id="progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <!-- Métricas -->
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+            <span class="text-xs font-semibold text-emerald-700 block">Exitosos</span>
+            <span id="stat-sent" class="text-2xl font-bold text-emerald-800">0</span>
+          </div>
+          <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+            <span class="text-xs font-semibold text-red-700 block">Fallos / Errores</span>
+            <span id="stat-errors" class="text-2xl font-bold text-red-800">0</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+            <span class="text-xs font-semibold text-slate-600 block">Pendientes</span>
+            <span id="stat-pending" class="text-2xl font-bold text-slate-800">0</span>
+          </div>
+        </div>
+
+        <!-- Log de Actividad en Vivo -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">Registro de Actividad en Vivo</span>
+            <span class="text-[10px] text-slate-400">Actualizado automáticamente</span>
+          </div>
+          <div id="live-log-box" class="h-36 overflow-y-auto bg-slate-900 text-slate-200 font-mono text-[11px] p-3 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-slate-500">// Esperando inicio del proceso de envíos...</div>
+          </div>
+        </div>
+
+        <!-- Tabla de Resultados por Invitado -->
+        <div class="space-y-3 pt-4 border-t border-slate-100">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-800">Detalle de Resultados por Invitado</h3>
+            <span class="text-xs text-slate-500">Se actualiza en tiempo real conforme avanza el envío</span>
+          </div>
+
+          <div class="max-h-72 overflow-y-auto border border-slate-200 rounded-xl">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+              <thead class="bg-slate-100 sticky top-0 font-semibold text-slate-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">#</th>
+                  <th class="px-3 py-2 text-left">Invitado</th>
+                  <th class="px-3 py-2 text-left">Teléfono</th>
+                  <th class="px-3 py-2 text-center">Pases</th>
+                  <th class="px-3 py-2 text-center">Estado</th>
+                  <th class="px-3 py-2 text-left">Hora</th>
+                  <th class="px-3 py-2 text-left">Detalle / Resultado</th>
+                </tr>
+              </thead>
+              <tbody id="results-table-body" class="divide-y divide-slate-100 bg-white">
+                <tr>
+                  <td colspan="7" class="px-3 py-6 text-center text-slate-400">
+                    Carga tu lista de invitados en Excel para ver el reporte aquí.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           SECCIÓN 6: PLAN B - DISTRIBUCIÓN Y ENVÍO EN EQUIPO
+           ========================================== -->
+      <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xl">🛡️</span>
+              <h2 class="font-bold text-slate-900 text-lg">6. Plan B: Distribución y Envío en Equipo (Contingencia Ágil)</h2>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Divide la lista entre varias personas de apoyo para enviar con 1 clic desde WhatsApp con nombres y emojis incluidos.
+            </p>
+          </div>
+
+          <button type="button" id="btn-export-plan-b" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs flex items-center space-x-1.5 self-start md:self-auto">
+            <span>📥 Descargar Asignación en Excel (.xlsx)</span>
+          </button>
+        </div>
+
+        <!-- Configuración del Reparto -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 text-xs">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-4 space-y-1">
+              <label class="font-bold text-slate-700 block">¿Qué invitados deseas repartir?</label>
+              <select id="select-team-filter" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium">
+                <option value="all" selected>👥 Todos los invitados de la lista</option>
+                <option value="errors">⚠️ Solo los que dieron Error en el envío automático</option>
+                <option value="pending">⏳ Solo los que siguen Pendientes</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-5 space-y-1">
+              <label class="font-bold text-slate-700 block">Nombres del equipo que ayudará (separados por coma):</label>
+              <input type="text" id="input-team-members" value="Ana, Carlos, Sofía" placeholder="Ej. Ana, Carlos, María..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium">
+            </div>
+
+            <div class="md:col-span-3 flex items-end">
+              <button type="button" id="btn-generate-team" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5">
+                <span>⚡ Dividir y Asignar Lista</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personalización de Plantillas Exclusiva para el Plan B y Excel -->
+        <div class="border border-rose-200 bg-rose-50/40 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">✏️</span>
+              <div>
+                <span class="font-bold text-slate-800 text-xs block">Personalizar Texto del Plan B y del Excel</span>
+                <span class="text-[11px] text-slate-500">Modifica aquí el texto que se incluirá en los enlaces de WhatsApp y en el archivo Excel antes de descargarlo.</span>
+              </div>
+            </div>
+            <button type="button" id="btn-toggle-planb-templates" class="text-xs font-semibold text-rose-600 hover:text-rose-800 bg-white border border-rose-200 px-3 py-1.5 rounded-lg shadow-2xs">
+              Ocultar Editor de Plantilla
+            </button>
+          </div>
+
+          <div id="planb-templates-box" class="space-y-3 pt-2">
+            <div class="flex flex-wrap items-center gap-2 border-b border-rose-200 pb-2">
+              <button type="button" id="tab-btn-planb-personalizado" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white shadow-2xs">
+                ✨ Mensaje con Nombre ({nombre})
+              </button>
+              <button type="button" id="tab-btn-planb-generico" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 bg-slate-100">
+                🏛 Mensaje Formal Genérico (sin nombre)
+              </button>
+              <button type="button" id="btn-copy-main-templates-to-planb" class="ml-auto text-[11px] text-rose-700 font-semibold underline bg-white px-2.5 py-1 rounded-md border border-rose-200">
+                🔄 Restaurar desde Plantilla Principal
+              </button>
+            </div>
+
+            <div id="tab-content-planb-personalizado" class="space-y-1.5">
+              <textarea id="planb-tpl-personalizado" rows="5" class="w-full text-xs font-sans p-3 border border-slate-300 rounded-xl bg-white shadow-inner leading-relaxed"></textarea>
+            </div>
+
+            <div id="tab-content-planb-generico" class="space-y-1.5 hidden">
+              <textarea id="planb-tpl-generico" rows="5" class="w-full text-xs font-sans p-3 border border-slate-300 rounded-xl bg-white shadow-inner leading-relaxed"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pestañas de Colaboradores Asignados -->
+        <div id="team-tabs-container" class="hidden space-y-4">
+          <div id="team-tabs-nav" class="flex flex-wrap gap-2 border-b border-slate-200 pb-2"></div>
+
+          <div class="flex items-center justify-between text-xs text-slate-600 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200">
+            <span>Viendo asignación de: <b id="team-current-member" class="text-rose-700 font-bold">Colaborador</b></span>
+            <span id="team-member-progress" class="font-semibold text-slate-700">0 / 0 completados manualmente</span>
+          </div>
+
+          <div class="max-h-[32rem] overflow-y-auto border border-slate-200 rounded-xl shadow-inner">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+              <thead class="bg-slate-100 sticky top-0 font-semibold text-slate-700 z-10">
+                <tr>
+                  <th class="px-3 py-2.5 text-center w-12">#</th>
+                  <th class="px-3 py-2.5 text-left">Invitado y Mensaje Personalizado (Editable)</th>
+                  <th class="px-3 py-2.5 text-left w-32">Teléfono</th>
+                  <th class="px-3 py-2.5 text-center w-28">Pases / Mesa</th>
+                  <th class="px-3 py-2.5 text-center w-48">Enviar / Copiar</th>
+                  <th class="px-3 py-2.5 text-center w-24">Pase QR</th>
+                  <th class="px-3 py-2.5 text-center w-28">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="team-guests-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="team-empty-state" class="text-center py-8 text-xs text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+          <p class="font-medium text-slate-600">Aún no se ha generado una asignación para el equipo.</p>
+          <p class="text-[11px] text-slate-400 mt-1">Escribe los nombres de los colaboradores arriba y presiona "Dividir y Asignar Lista".</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==========================================
+         VISTA 2: RECEPCIÓN DEL JARDÍN - ESCÁNER QR Y CHECK-IN
+         ========================================== -->
+    <div id="view-recepcion" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Lector de Cámara QR (5 cols) -->
+        <div class="lg:col-span-5 bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-4">
+          <div class="flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <span class="text-lg">📷</span>
+            <div>
+              <h2 class="font-bold text-slate-900 text-base">Escáner QR de Recepción</h2>
+              <p class="text-[11px] text-slate-500">Apunta la cámara del celular al código QR del invitado al llegar al jardín.</p>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div id="qr-reader" class="w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 min-h-[240px] flex items-center justify-center text-xs text-slate-400 p-4 text-center">
+              Presiona "Iniciar Cámara QR" para validar pases en la entrada
+            </div>
+
+            <div class="flex space-x-2">
+              <button type="button" id="btn-start-scanner" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs">
+                📷 Iniciar Cámara QR
+              </button>
+              <button type="button" id="btn-stop-scanner" class="hidden flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs">
+                ⏹ Detener Cámara
+              </button>
+            </div>
+          </div>
+
+          <div id="scan-result-card" class="hidden rounded-2xl p-4 border-2 transition-all space-y-2"></div>
+        </div>
+
+        <!-- Buscador Manual y Control de Asistencia en Puerta (7 cols) -->
+        <div class="lg:col-span-7 bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <h2 class="font-bold text-slate-900 text-base">📋 Control de Acceso en Puerta (Check-In)</h2>
+              <p class="text-[11px] text-slate-500">Busca por nombre, mesa o folio y registra la entrada de los invitados.</p>
+            </div>
+            <button type="button" id="btn-export-checkin" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs px-3 py-2 rounded-xl self-start">
+              📥 Exportar Asistencia (.xlsx)
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5">
+              <span class="text-[11px] text-emerald-700 font-semibold block">Ingresados</span>
+              <span id="stat-checked-in" class="text-xl font-bold text-emerald-800">0</span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+              <span class="text-[11px] text-slate-600 font-semibold block">Por Llegar</span>
+              <span id="stat-pending-in" class="text-xl font-bold text-slate-800">0</span>
+            </div>
+            <div class="bg-rose-50 border border-rose-200 rounded-xl p-2.5">
+              <span class="text-[11px] text-rose-700 font-semibold block">Pases Recibidos</span>
+              <span id="stat-pases-in" class="text-xl font-bold text-rose-800">0</span>
+            </div>
+          </div>
+
+          <input type="text" id="input-search-door" placeholder="🔍 Buscar invitado por nombre, mesa o folio..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs">
+
+          <div class="max-h-96 overflow-y-auto border border-slate-200 rounded-xl">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+              <thead class="bg-slate-100 sticky top-0 font-semibold text-slate-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">Invitado / Folio</th>
+                  <th class="px-3 py-2 text-center">Pases</th>
+                  <th class="px-3 py-2 text-center">Mesa</th>
+                  <th class="px-3 py-2 text-center">Acceso</th>
+                </tr>
+              </thead>
+              <tbody id="door-guests-tbody" class="divide-y divide-slate-100 bg-white">
+                <tr>
+                  <td colspan="4" class="px-3 py-8 text-center text-slate-400">
+                    Carga tu archivo Excel para ver la lista de recepción aquí.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL PARA VER Y DESCARGAR EL PASE QR DEL INVITADO -->
+  <div id="qr-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-serif-title font-bold text-slate-900 text-base">🌿 Pase de Acceso al Jardín</h3>
+        <button type="button" id="btn-close-qr-modal" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="bg-rose-50/40 border-2 border-rose-200 rounded-2xl p-4 space-y-2">
+        <p class="text-[11px] uppercase tracking-widest text-rose-700 font-bold">Nuestra Boda • Pase Oficial</p>
+        <h4 id="modal-guest-name" class="font-serif-title font-bold text-slate-900 text-base">Nombre del Invitado</h4>
+        <div class="bg-white p-3 rounded-xl border border-slate-200 inline-block mx-auto shadow-2xs">
+          <canvas id="modal-qr-canvas" class="mx-auto"></canvas>
+          <img id="modal-qr-custom-img" src="" alt="QR" class="hidden w-48 h-48 object-contain mx-auto">
+        </div>
+        <div class="flex justify-center space-x-3 text-xs font-semibold text-slate-700 pt-1">
+          <span id="modal-guest-pases" class="bg-white px-2.5 py-1 rounded-lg border border-slate-200">🎟 1 Pase</span>
+          <span id="modal-guest-mesa" class="bg-white px-2.5 py-1 rounded-lg border border-slate-200">🪑 Mesa General</span>
+        </div>
+        <p id="modal-guest-code" class="text-[10px] font-mono text-slate-400">Folio: JARDIN-INV-001</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2 pt-2">
+        <button type="button" id="btn-download-qr-img" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs">
+          ⬇ Descargar Imagen QR
+        </button>
+        <button type="button" id="btn-close-qr-modal-2" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 px-4 rounded-xl">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="mt-12 py-6 border-t border-slate-200 text-center text-xs text-slate-500">
+    Sistema Completo de Invitaciones de Boda • Envío Automático, Plan B en Equipo y Recepción QR
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

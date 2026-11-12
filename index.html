@@ -332,34 +332,28 @@
 
               <!-- Personalizado -->
               <div id="tab-content-personalizado" class="mt-4 space-y-2">
-                <textarea id="tpl-personalizado" rows="6" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">✨ ¡Hola, {nombre}! ✨
+                <textarea id="tpl-personalizado" rows="7" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">¡Hola, *{nombre}*! 🤵🏻✨
 
-Nos llena de inmensa felicidad invitarte a compartir con nosotros uno de los días más importantes de nuestras vidas: ¡Nuestra Boda! 💍👰🤵
+Te escribimos con mucho gusto de parte del *equipo de los Best Man del novio*, quienes estamos apoyando a los novios con la logística y entrega de pases para su boda. 💍🥂
 
-🌿 Acceso al Jardín:
-Presenta el código QR adjunto a este mensaje en la entrada para validar tu ingreso al jardín del evento.
-
+Por este medio te hacemos llegar tu *Pase Digital con Código QR de acceso al jardín*:
 {detalle_pases}
 {detalle_mesa}
 
-¡Esperamos de todo corazón contar con tu compañía y celebrar juntos este gran momento! ❤️🥂</textarea>
+Por favor conserva la imagen adjunta con tu código QR y muéstrala en la entrada el día del evento. ¡Los novios y nosotros te esperamos para celebrar juntos! 🎉</textarea>
               </div>
 
               <!-- Formal Genérico -->
               <div id="tab-content-generico" class="mt-4 space-y-2 hidden">
-                <textarea id="tpl-generico" rows="6" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">Estimado/a invitado/a de honor:
+                <textarea id="tpl-generico" rows="7" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">¡Hola! Muy buen día 🤵🏻✨
 
-Nos llena de inmensa alegría y distinción hacerle llegar nuestra más cordial invitación a celebrar la unión de nuestras vidas en sagrado matrimonio. 💍👰🤵
+Le escribimos cordialmente de parte del *equipo de los Best Man del novio*, quienes estamos apoyando a los novios con la logística y entrega de pases para su boda. 💍🥂
 
-Será un verdadero honor y privilegio contar con su distinguida presencia en esta fecha tan especial e inolvidable.
-
-🌿 Acceso al Jardín:
-Le adjuntamos su código QR personal para el acceso al jardín del evento. Favor de presentarlo en la recepción a su llegada.
-
+Por este medio le hacemos llegar su *Pase Digital con Código QR de acceso al jardín*:
 {detalle_pases}
 {detalle_mesa}
 
-Agradecemos de antemano el honor de su compañía y sus valiosos buenos deseos. Reciba un cordial y afectuoso saludo. ✨🥂</textarea>
+Por favor conserve la imagen adjunta con su código QR y muéstrela en la recepción el día del evento. ¡Será un honor contar con su presencia! 🎉</textarea>
               </div>
 
               <!-- Vista Previa estilo WhatsApp -->
@@ -414,7 +408,16 @@ Agradecemos de antemano el honor de su compañía y sus valiosos buenos deseos. 
             <p class="text-xs text-slate-500">Envío automático con pausas anti-bloqueo, alertas a tu WhatsApp y reporte de entregas.</p>
           </div>
 
-          <div class="flex items-center space-x-4 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 text-xs">
+          <div class="flex flex-wrap items-center gap-3 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 text-xs">
+            <div>
+              <label class="text-slate-600 block text-[11px]">Grupo a enviar:</label>
+              <select id="select-send-target-group" class="bg-white border rounded px-2 py-1 font-semibold text-slate-800">
+                <option value="pending_all" selected>📋 Todos los Pendientes / Faltantes (MX + EE.UU.)</option>
+                <option value="pending_mx">🇲🇽 Solo México (+52) Pendientes</option>
+                <option value="pending_us">🇺🇸 Solo Estados Unidos (+1) Pendientes</option>
+                <option value="all_force">🔄 Toda la lista desde cero</option>
+              </select>
+            </div>
             <div>
               <label class="text-slate-600 block text-[11px]">Intervalo seguro:</label>
               <select id="select-delay" class="bg-white border rounded px-2 py-1 font-semibold text-slate-800">
@@ -425,8 +428,8 @@ Agradecemos de antemano el honor de su compañía y sus valiosos buenos deseos. 
               </select>
             </div>
             <div>
-              <label class="text-slate-600 block text-[11px]">País predeterminado:</label>
-              <input type="text" id="input-country" value="52" class="w-14 bg-white border rounded px-2 py-1 font-semibold text-slate-800 text-center">
+              <label class="text-slate-600 block text-[11px]">País p/10 dígitos:</label>
+              <input type="text" id="input-country" value="52" class="w-14 bg-white border rounded px-2 py-1 font-semibold text-slate-800 text-center" title="Se aplica solo si un teléfono tiene 10 dígitos sin código de país (52 para México o 1 para EE.UU.)">
             </div>
           </div>
         </div>

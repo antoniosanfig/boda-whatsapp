@@ -91,6 +91,7 @@ const btnSendTest = document.getElementById('btn-send-test');
 const testFeedback = document.getElementById('test-feedback');
 
 // Elementos - 5. Envíos Automáticos y Supervisión
+const selectSendTargetGroup = document.getElementById('select-send-target-group');
 const selectDelay = document.getElementById('select-delay');
 const inputCountry = document.getElementById('input-country');
 const checkNotifySupervisor = document.getElementById('check-notify-supervisor');
@@ -292,6 +293,34 @@ inputExcelFile.addEventListener('change', () => {
   }
 });
 
+// Limpiar símbolos (+, (, ), -, espacios, decimales .0, prefijos 001/0052) de cualquier teléfono
+function limpiarTelefonoCliente(rawPhone) {
+  if (rawPhone === null || rawPhone === undefined) return '';
+  let str = String(rawPhone).trim();
+  if (/^\d+\.0+$/.test(str)) {
+    str = str.split('.')[0];
+  }
+  let digits = str.replace(/\D/g, '');
+  if (digits.startsWith('001') && digits.length === 13) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith('0052') && (digits.length === 14 || digits.length === 15)) {
+    digits = digits.slice(2);
+  }
+  return digits;
+}
+
+// Detectar si un teléfono es de México ('MX') o Estados Unidos ('US')
+function detectarPaisCliente(rawPhone, defaultCountry = '52') {
+  const digits = limpiarTelefonoCliente(rawPhone);
+  if (!digits || digits.length < 10) return 'INVALID';
+  if (digits.length === 11 && digits.startsWith('1')) return 'US';
+  if ((digits.length === 12 && digits.startsWith('52')) || (digits.length === 13 && digits.startsWith('521'))) return 'MX';
+  if (digits.length === 10) {
+    return String(defaultCountry).replace(/\D/g, '') === '1' ? 'US' : 'MX';
+  }
+  return digits.startsWith('1') ? 'US' : 'MX';
+}
+
 async function procesarExcelHibrido(file) {
   // 1. Si el servidor está en línea, subirlo también al servidor para envíos automáticos
   if (backendOnline) {
@@ -333,9 +362,7 @@ async function procesarExcelHibrido(file) {
         const codigoKey = keys.find(k => /codigo|código|qr|id|folio|clave/i.test(k.trim()));
 
         const rawNombre = nombreKey ? String(row[nombreKey]).trim() : '';
-        let rawTelStr = telefonoKey && row[telefonoKey] !== undefined ? String(row[telefonoKey]).trim() : '';
-        if (/^\d+\.0+$/.test(rawTelStr)) rawTelStr = rawTelStr.split('.')[0];
-        const rawTelefono = rawTelStr.replace(/\D/g, '');
+        const rawTelefono = telefonoKey ? limpiarTelefonoCliente(row[telefonoKey]) : '';
         const pases = pasesKey && String(row[pasesKey]).trim() ? String(row[pasesKey]).trim().replace(/\.0+$/, '') : '1';
         const mesa = mesaKey && String(row[mesaKey]).trim() ? String(row[mesaKey]).trim() : '';
         const codigo = codigoKey && String(row[codigoKey]).trim()
@@ -445,6 +472,7 @@ function renderSummary(data) {
 
 function renderGuestsTable(guests) {
   guestsTableBody.innerHTML = '';
+  const defCountry = inputCountry ? inputCountry.value.trim() : '52';
   guests.forEach((g) => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors cursor-pointer';
@@ -452,12 +480,24 @@ function renderGuestsTable(guests) {
       ? 'bg-rose-100 text-rose-800 border-rose-200'
       : 'bg-amber-100 text-amber-800 border-amber-200';
 
+    const cleanTel = limpiarTelefonoCliente(g.telefono);
+    const pais = detectarPaisCliente(cleanTel, defCountry);
+    let telHtml = '<span class="text-red-500">Sin teléfono</span>';
+    if (cleanTel) {
+      const flagBadge = pais === 'US'
+        ? '<span class="inline-block mr-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-sans font-bold">🇺🇸 +1</span>'
+        : (pais === 'MX'
+          ? '<span class="inline-block mr-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-sans font-bold">🇲🇽 +52</span>'
+          : '');
+      telHtml = `${flagBadge}<span>${escapeHtml(cleanTel)}</span>`;
+    }
+
     tr.innerHTML = `
       <td class="px-3 py-2 text-slate-400 font-mono">${g.id}</td>
       <td class="px-3 py-2 font-medium text-slate-800">
         ${escapeHtml(g.nombre) || '<span class="italic text-slate-400">Sin nombre (Saludo formal)</span>'}
       </td>
-      <td class="px-3 py-2 font-mono text-slate-600">${escapeHtml(g.telefono) || '<span class="text-red-500">Sin teléfono</span>'}</td>
+      <td class="px-3 py-2 font-mono text-slate-600">${telHtml}</td>
       <td class="px-3 py-2 text-center font-semibold text-slate-700">${escapeHtml(g.pases || '1')}</td>
       <td class="px-3 py-2">
         <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeClass}">
@@ -878,15 +918,35 @@ btnStartSending.addEventListener('click', async () => {
 
   await sincronizarInvitadosAlServidor();
 
-  const confirmMsg = `¿Deseas iniciar el envío automático de invitaciones a ${allGuests.length} invitados?`;
-  if (!confirm(confirmMsg)) return;
-
   const qrMode = document.querySelector('input[name="qrMode"]:checked').value;
   const delaySeconds = parseInt(selectDelay.value, 10) || 7;
   const defaultCountry = inputCountry.value.trim() || '52';
+  const targetGroup = selectSendTargetGroup ? selectSendTargetGroup.value : 'pending_all';
   const notifySupervisor = checkNotifySupervisor ? checkNotifySupervisor.checked : false;
   const supervisorPhone = inputSupervisorPhone ? inputSupervisorPhone.value.trim() : '';
   const notifyMode = selectNotifyMode ? selectNotifyMode.value : 'errors_only';
+
+  // Calcular cuántos invitados corresponden a esta tanda para informar al usuario
+  let countToSend = allGuests.length;
+  let labelGrupo = 'toda la lista';
+  if (targetGroup === 'pending_mx') {
+    countToSend = allGuests.filter(g => g.estado !== 'Enviado' && detectarPaisCliente(g.telefono, defaultCountry) === 'MX').length;
+    labelGrupo = 'México (+52) pendientes';
+  } else if (targetGroup === 'pending_us') {
+    countToSend = allGuests.filter(g => g.estado !== 'Enviado' && detectarPaisCliente(g.telefono, defaultCountry) === 'US').length;
+    labelGrupo = 'Estados Unidos (+1) pendientes';
+  } else if (targetGroup === 'pending_all') {
+    countToSend = allGuests.filter(g => g.estado !== 'Enviado').length;
+    labelGrupo = 'invitados pendientes/faltantes';
+  }
+
+  if (countToSend === 0) {
+    alert(`No hay invitados pendientes en el grupo seleccionado (${labelGrupo}). Si deseas volver a enviar desde cero, usa el botón "🧹 Limpiar Resultados de Envío" o elige "🔄 Toda la lista desde cero".`);
+    return;
+  }
+
+  const confirmMsg = `¿Deseas iniciar el envío automático a ${countToSend} invitado(s) (${labelGrupo})?`;
+  if (!confirm(confirmMsg)) return;
 
   try {
     const res = await fetch(`${API_BASE}/api/start-sending`, {
@@ -900,6 +960,7 @@ btnStartSending.addEventListener('click', async () => {
         customQrDataUrl,
         delaySeconds,
         defaultCountry,
+        targetGroup,
         notifySupervisor,
         supervisorPhone,
         notifyMode
@@ -1199,8 +1260,13 @@ function construirMensajeInvitadoPlanB(guest) {
 }
 
 function generarEnlaceWhatsAppDirecto(rawPhone, mensaje, defaultCountry = '52') {
-  let digits = String(rawPhone || '').replace(/\D/g, '');
-  if (digits.length === 10) digits = defaultCountry + digits;
+  let digits = limpiarTelefonoCliente(rawPhone);
+  const cleanCountry = String(defaultCountry || '52').replace(/\D/g, '') || '52';
+  // Si tiene 10 dígitos sin código de país, anteponer el país predeterminado (52 o 1).
+  // Si ya tiene 11 dígitos empezando con 1 (EE.UU.) o 12/13 empezando con 52 (México), se respeta tal cual.
+  if (digits.length === 10) {
+    digits = cleanCountry + digits;
+  }
   return `https://api.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(mensaje)}`;
 }
 
@@ -1799,11 +1865,19 @@ function cargarEstadoLocal() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
-    if (data.tplPers) tplPersonalizado.value = data.tplPers;
-    if (data.tplGen) tplGenerico.value = data.tplGen;
+    // Solo restaurar plantillas guardadas si ya contienen la actualización de "Best Man"
+    if (data.tplPers && /best\s*man/i.test(data.tplPers)) {
+      tplPersonalizado.value = data.tplPers;
+    }
+    if (data.tplGen && /best\s*man/i.test(data.tplGen)) {
+      tplGenerico.value = data.tplGen;
+    }
     if (data.teamMembers) inputTeamMembers.value = data.teamMembers;
     if (data.allGuests && Array.isArray(data.allGuests) && data.allGuests.length > 0) {
-      allGuests = data.allGuests;
+      allGuests = data.allGuests.map(g => ({
+        ...g,
+        telefono: limpiarTelefonoCliente(g.telefono)
+      }));
       finalizarCargaInvitados('Lista_Guardada.xlsx');
     }
   } catch (e) {}

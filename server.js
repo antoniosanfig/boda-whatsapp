@@ -174,7 +174,7 @@ async function initWhatsApp(forceNew = false) {
 // Iniciar WhatsApp al arrancar
 initWhatsApp(false);
 
-// Limpiar número de teléfono proveniente de Excel (quita decimales .0, espacios, guiones, etc.)
+// Limpiar número de teléfono proveniente de Excel (quita símbolos +, (, ), -, decimales .0, espacios, etc.)
 function limpiarTelefono(rawPhone) {
   if (rawPhone === null || rawPhone === undefined) return '';
   let str = String(rawPhone).trim();
@@ -182,28 +182,51 @@ function limpiarTelefono(rawPhone) {
   if (/^\d+\.0+$/.test(str)) {
     str = str.split('.')[0];
   }
-  return str.replace(/\D/g, '');
+  let digits = str.replace(/\D/g, '');
+  // Si tiene prefijo internacional con 00 (ej. 001... o 0052...), quitar los dos ceros iniciales
+  if (digits.startsWith('001') && digits.length === 13) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith('0052') && (digits.length === 14 || digits.length === 15)) {
+    digits = digits.slice(2);
+  }
+  return digits;
 }
 
-// Función para normalizar y resolver número de WhatsApp
+// Detectar si un número limpio pertenece a México ('MX') o Estados Unidos/Canadá ('US')
+function detectarPaisTelefono(rawPhone, defaultCountry = '52') {
+  const digits = limpiarTelefono(rawPhone);
+  if (!digits || digits.length < 10) return 'INVALID';
+  if (digits.length === 11 && digits.startsWith('1')) return 'US';
+  if ((digits.length === 12 && digits.startsWith('52')) || (digits.length === 13 && digits.startsWith('521'))) return 'MX';
+  if (digits.length === 10) {
+    return String(defaultCountry).replace(/\D/g, '') === '1' ? 'US' : 'MX';
+  }
+  return digits.startsWith('1') ? 'US' : 'MX';
+}
+
+// Función para normalizar y resolver número de WhatsApp (soporta México +52 y EE.UU. +1)
 async function resolveWhatsAppJid(rawPhone, defaultCountry = '52') {
   if (!rawPhone) return null;
   let digits = limpiarTelefono(rawPhone);
-  if (!digits) return null;
+  if (!digits || digits.length < 10) return null;
 
-  // Si tiene 10 dígitos (común en México), anteponer código de país
-  if (digits.length === 10) {
-    digits = defaultCountry + digits;
+  const cleanDefaultCountry = String(defaultCountry || '52').replace(/\D/g, '') || '52';
+  const wasTenDigits = digits.length === 10;
+
+  // Si tiene 10 dígitos sin código de país, anteponer el código predeterminado (52 o 1)
+  if (wasTenDigits) {
+    digits = cleanDefaultCountry + digits;
   }
 
   const primaryJid = `${digits}@s.whatsapp.net`;
 
   try {
     if (sock && sock.onWhatsApp) {
+      // 1. Validar JID principal (funciona directo para EE.UU. 1XXXXXXXXXX o México 52XXXXXXXXXX)
       const [check] = await sock.onWhatsApp(primaryJid);
       if (check && check.exists) return check.jid;
 
-      // Variantes de México (52 vs 521)
+      // 2. Variantes de México (52 vs 521)
       if (digits.startsWith('52') && digits.length === 12) {
         const altJid = `521${digits.slice(2)}@s.whatsapp.net`;
         const [checkAlt] = await sock.onWhatsApp(altJid);
@@ -212,6 +235,23 @@ async function resolveWhatsAppJid(rawPhone, defaultCountry = '52') {
         const altJid = `52${digits.slice(3)}@s.whatsapp.net`;
         const [checkAlt] = await sock.onWhatsApp(altJid);
         if (checkAlt && checkAlt.exists) return checkAlt.jid;
+      }
+
+      // 3. Si originalmente tenía 10 dígitos, probar con el otro país (+1 EE.UU. o +52 México) por si venía sin lada internacional
+      if (wasTenDigits) {
+        const raw10 = digits.slice(cleanDefaultCountry.length);
+        if (cleanDefaultCountry !== '1') {
+          const usJid = `1${raw10}@s.whatsapp.net`;
+          const [checkUs] = await sock.onWhatsApp(usJid);
+          if (checkUs && checkUs.exists) return checkUs.jid;
+        } else {
+          const mxJid = `52${raw10}@s.whatsapp.net`;
+          const [checkMx] = await sock.onWhatsApp(mxJid);
+          if (checkMx && checkMx.exists) return checkMx.jid;
+          const mxAltJid = `521${raw10}@s.whatsapp.net`;
+          const [checkMxAlt] = await sock.onWhatsApp(mxAltJid);
+          if (checkMxAlt && checkMxAlt.exists) return checkMxAlt.jid;
+        }
       }
     }
   } catch (e) {
@@ -605,8 +645,18 @@ app.post('/api/start-sending', async (req, res) => {
       });
     }
 
-    if (Array.isArray(req.body.guests) && req.body.guests.length > 0 && (!currentGuests || currentGuests.length === 0)) {
-      currentGuests = req.body.guests;
+    if (Array.isArray(req.body.guests) && req.body.guests.length > 0) {
+      if (!currentGuests || currentGuests.length === 0) {
+        currentGuests = req.body.guests;
+      } else {
+        // Sincronizar estados desde el cliente por si hubo actualizaciones
+        req.body.guests.forEach(cg => {
+          const existing = currentGuests.find(x => x.id === cg.id);
+          if (existing && cg.estado === 'Enviado') {
+            existing.estado = 'Enviado';
+          }
+        });
+      }
     }
 
     if (!currentGuests || currentGuests.length === 0) {
@@ -630,6 +680,7 @@ app.post('/api/start-sending', async (req, res) => {
       customQrDataUrl = null,
       delaySeconds = 7,
       defaultCountry = '52',
+      targetGroup = 'pending_all', // 'pending_all', 'pending_mx', 'pending_us', 'all_force'
       notifySupervisor = false,
       supervisorPhone = '',
       notifyMode = 'errors_only'
@@ -640,19 +691,58 @@ app.post('/api/start-sending', async (req, res) => {
       return res.json({ success: true, message: 'Envíos reanudados' });
     }
 
+    // Filtrar la lista según el grupo seleccionado por el usuario
+    let targetList = currentGuests;
+    if (targetGroup === 'all_force') {
+      currentGuests.forEach(g => {
+        g.estado = 'Pendiente';
+        g.resultado = '';
+        g.horaEnvio = '';
+      });
+      targetList = currentGuests;
+    } else if (targetGroup === 'pending_mx') {
+      targetList = currentGuests.filter(g =>
+        g.estado !== 'Enviado' && detectarPaisTelefono(g.telefono, defaultCountry) === 'MX'
+      );
+    } else if (targetGroup === 'pending_us') {
+      targetList = currentGuests.filter(g =>
+        g.estado !== 'Enviado' && detectarPaisTelefono(g.telefono, defaultCountry) === 'US'
+      );
+    } else {
+      // 'pending_all': todos los que aún no están marcados como Enviado
+      targetList = currentGuests.filter(g => g.estado !== 'Enviado');
+    }
+
+    if (targetList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No hay invitados pendientes que coincidan con el filtro seleccionado (todos ya fueron enviados o no hay registros de ese país).'
+      });
+    }
+
+    // Conservar los resultados exitosos previos si es un envío parcial o continuación
+    const targetIds = new Set(targetList.map(g => g.id));
+    const preservedResults = targetGroup === 'all_force'
+      ? []
+      : sendingState.results.filter(r => !targetIds.has(r.id) && r.estado === 'EXITOSO');
+
     sendingState = {
       isRunning: true,
       isPaused: false,
       shouldStop: false,
       currentIndex: 0,
-      total: currentGuests.length,
+      total: targetList.length,
       sentCount: 0,
       errorCount: 0,
-      results: [],
-      logs: []
+      results: preservedResults,
+      logs: sendingState.logs || []
     };
 
-    res.json({ success: true, message: 'Proceso de envío iniciado correctamente' });
+    res.json({
+      success: true,
+      totalToSend: targetList.length,
+      message: `Proceso de envío iniciado para ${targetList.length} invitado(s)`
+    });
 
     ejecutarEnviosEnCola({
       templatePersonalizado,
@@ -664,7 +754,7 @@ app.post('/api/start-sending', async (req, res) => {
       notifySupervisor: Boolean(notifySupervisor),
       supervisorPhone: String(supervisorPhone || '').trim(),
       notifyMode: notifyMode === 'all' ? 'all' : 'errors_only'
-    }, currentGuests);
+    }, targetList);
 
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

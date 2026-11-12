@@ -1231,19 +1231,13 @@ function construirMensajeBase(guest, tplPers, tplGen) {
   );
 
   const plantillaBase = tieneNombre ? tplPers : tplGen;
-  const detallePases = guest.pases && String(guest.pases) !== '1'
-    ? `🎟 Pases incluidos: ${guest.pases} accesos`
-    : `🎟 Pase válido para su acceso personal`;
-  const detalleMesa = guest.mesa
-    ? `🪑 Mesa asignada: ${guest.mesa}`
-    : '';
 
   const texto = plantillaBase
     .replace(/\{nombre\}/gi, guest.nombre || 'Distinguido/a Invitado/a')
-    .replace(/\{pases\}/gi, String(guest.pases || '1'))
-    .replace(/\{detalle_pases\}/gi, detallePases)
-    .replace(/\{mesa\}/gi, guest.mesa || 'General')
-    .replace(/\{detalle_mesa\}/gi, detalleMesa)
+    .replace(/\{pases\}/gi, '')
+    .replace(/\{detalle_pases\}/gi, '')
+    .replace(/\{mesa\}/gi, '')
+    .replace(/\{detalle_mesa\}/gi, '')
     .replace(/\{codigo\}/gi, guest.codigo || '');
 
   return texto.replace(/\n{3,}/g, '\n\n').trim();
@@ -1574,10 +1568,8 @@ async function abrirModalQR(guest) {
     modalQrCanvas.classList.remove('hidden');
 
     const payload = JSON.stringify({
-      evento: 'Boda - Acceso Jardín',
+      evento: 'Boda - Acceso Iglesia',
       invitado: guest.nombre || 'Invitado de Honor',
-      pases: guest.pases || 1,
-      mesa: guest.mesa || 'General',
       codigo: guest.codigo,
       valido: true
     });
@@ -1630,17 +1622,17 @@ btnDownloadQrImg.addEventListener('click', () => {
   ctx.fillStyle = '#be123c';
   ctx.font = 'bold 18px Inter, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('NUESTRA BODA • PASE DE ACCESO AL JARDÍN', 300, 85);
+  ctx.fillText('NUESTRA BODA • PASE DE ACCESO A LA IGLESIA', 300, 85);
 
   ctx.fillStyle = '#0f172a';
   ctx.font = 'bold 26px Georgia, serif';
   ctx.fillText((g.nombre || 'Invitado de Honor').slice(0, 34), 300, 135);
 
-  ctx.drawImage(modalQrCanvas, 150, 170, 300, 300);
+  ctx.drawImage(modalQrCanvas, 150, 175, 300, 300);
 
   ctx.fillStyle = '#334155';
-  ctx.font = 'bold 22px Inter, sans-serif';
-  ctx.fillText(`Pases válidos: ${g.pases || 1}   |   Mesa: ${g.mesa || 'General'}`, 300, 535);
+  ctx.font = 'bold 20px Inter, sans-serif';
+  ctx.fillText('Acceso a la Ceremonia Religiosa (Iglesia)', 300, 535);
 
   ctx.fillStyle = '#64748b';
   ctx.font = '16px monospace';
@@ -1707,12 +1699,9 @@ function procesarLecturaQR(rawText) {
         <span class="text-xs font-mono text-slate-500">${escapeHtml(found.codigo)}</span>
       </div>
       <div class="text-base font-bold text-slate-900">${escapeHtml(found.nombre || 'Invitado Formal')}</div>
-      <div class="flex space-x-3 text-xs font-semibold text-slate-700">
-        <span>🎟 Pases: <b>${escapeHtml(found.pases)}</b></span>
-        <span>🪑 Mesa: <b>${escapeHtml(found.mesa || 'General')}</b></span>
-      </div>
+      <div class="text-xs font-semibold text-slate-600">⛪ Pase de Acceso a la Iglesia</div>
       <button type="button" id="btn-confirm-scan-in" class="w-full ${yaIngreso ? 'bg-slate-600' : 'bg-emerald-600 hover:bg-emerald-700'} text-white font-bold text-xs py-2.5 px-4 rounded-xl">
-        ${yaIngreso ? 'Ya Registrado ✓' : '✓ Confirmar Entrada al Jardín'}
+        ${yaIngreso ? 'Ya Registrado ✓' : '✓ Confirmar Entrada a la Iglesia'}
       </button>
     `;
     const btn = document.getElementById('btn-confirm-scan-in');
@@ -1863,11 +1852,11 @@ function cargarEstadoLocal() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
-    // Solo restaurar plantillas guardadas si ya contienen la actualización de "Best Man"
-    if (data.tplPers && /best\s*man/i.test(data.tplPers)) {
+    // Solo restaurar plantillas guardadas si ya contienen la actualización de "Iglesia" y no tienen variables de pases/mesa
+    if (data.tplPers && /iglesia/i.test(data.tplPers) && !/detalle_pases|detalle_mesa/i.test(data.tplPers)) {
       tplPersonalizado.value = data.tplPers;
     }
-    if (data.tplGen && /best\s*man/i.test(data.tplGen)) {
+    if (data.tplGen && /iglesia/i.test(data.tplGen) && !/detalle_pases|detalle_mesa/i.test(data.tplGen)) {
       tplGenerico.value = data.tplGen;
     }
     if (data.teamMembers) inputTeamMembers.value = data.teamMembers;

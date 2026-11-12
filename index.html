@@ -58,7 +58,7 @@
             🚀 Envíos y Plan B
           </button>
           <button type="button" id="nav-btn-recepcion" class="px-3.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">
-            🌿 Recepción QR
+            ⛪ Recepción Iglesia QR
           </button>
         </div>
       </div>
@@ -157,16 +157,16 @@
             </div>
           </div>
 
-          <!-- TARJETA 2: QR de Acceso al Jardín -->
+          <!-- TARJETA 2: QR de Acceso a la Iglesia -->
           <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6">
             <div class="flex items-center space-x-2.5 pb-4 border-b border-slate-100">
-              <span class="text-lg">🌿</span>
-              <h2 class="font-bold text-slate-900 text-base">2. QR de Acceso al Jardín</h2>
+              <span class="text-lg">⛪</span>
+              <h2 class="font-bold text-slate-900 text-base">2. QR de Acceso a la Iglesia</h2>
             </div>
 
             <div class="mt-4 space-y-4">
               <p class="text-xs text-slate-600">
-                Cada mensaje incluirá la imagen de acceso que los invitados mostrarán al llegar al jardín:
+                Cada mensaje incluirá la imagen de acceso que los invitados mostrarán al llegar a la iglesia:
               </p>
 
               <div class="space-y-2">
@@ -174,15 +174,15 @@
                   <input type="radio" name="qrMode" value="individual" checked class="mt-0.5 text-rose-600 focus:ring-rose-500">
                   <div>
                     <span class="text-xs font-bold text-slate-800 block">Generar QR individual por invitado (Recomendado)</span>
-                    <span class="text-xs text-slate-500 block mt-0.5">Codifica el nombre, pases asignados, mesa y folio para validar en la recepción.</span>
+                    <span class="text-xs text-slate-500 block mt-0.5">Codifica el nombre del invitado y su folio para validar el acceso en la entrada de la iglesia.</span>
                   </div>
                 </label>
 
                 <label class="flex items-start space-x-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
                   <input type="radio" name="qrMode" value="custom" class="mt-0.5 text-rose-600 focus:ring-rose-500">
                   <div>
-                    <span class="text-xs font-bold text-slate-800 block">Subir imagen fija del QR del Jardín</span>
-                    <span class="text-xs text-slate-500 block mt-0.5">Si el jardín o salón ya te entregó un diseño o pase oficial en imagen.</span>
+                    <span class="text-xs font-bold text-slate-800 block">Subir imagen fija del QR de la Iglesia</span>
+                    <span class="text-xs text-slate-500 block mt-0.5">Si ya cuentas con un diseño o pase oficial en imagen para todos los invitados.</span>
                   </div>
                 </label>
               </div>
@@ -191,12 +191,12 @@
               <div id="custom-qr-upload-box" class="hidden pt-2 border-t border-slate-100 space-y-3">
                 <input type="file" id="input-qr-image" accept="image/*" class="hidden">
                 <button type="button" onclick="document.getElementById('input-qr-image').click()" class="w-full border-2 border-dashed border-rose-300 rounded-xl p-4 text-center hover:bg-rose-50/40 transition-colors">
-                  <span class="text-xs font-semibold text-rose-700 block">📷 Seleccionar imagen del QR del Jardín</span>
+                  <span class="text-xs font-semibold text-rose-700 block">📷 Seleccionar imagen del QR de la Iglesia</span>
                   <span class="text-[11px] text-slate-400 block mt-1">PNG, JPG, JPEG</span>
                 </button>
 
                 <div id="preview-custom-qr" class="hidden flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border">
-                  <img id="img-custom-qr" src="" alt="QR Jardín" class="w-16 h-16 object-contain rounded-lg border bg-white">
+                  <img id="img-custom-qr" src="" alt="QR Iglesia" class="w-16 h-16 object-contain rounded-lg border bg-white">
                   <div class="flex-1 text-xs">
                     <p class="font-bold text-slate-800">Imagen cargada</p>
                     <p class="text-slate-500 text-[11px]">Se enviará esta imagen a todos.</p>
@@ -315,9 +315,9 @@
             <div class="flex items-center justify-between pb-4 border-b border-slate-100">
               <div class="flex items-center space-x-2.5">
                 <span class="text-lg">💌</span>
-                <h2 class="font-bold text-slate-900 text-base">4. Plantillas de Invitación</h2>
+                <h2 class="font-bold text-slate-900 text-base">4. Plantillas de Invitación (Acceso a la Iglesia)</h2>
               </div>
-              <span class="text-[11px] text-slate-400">Variables: <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{nombre}</code> <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{pases}</code> <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{mesa}</code></span>
+              <span class="text-[11px] text-slate-400">Variable automática: <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600">{nombre}</code></span>
             </div>
 
             <div class="mt-4">
@@ -332,28 +332,24 @@
 
               <!-- Personalizado -->
               <div id="tab-content-personalizado" class="mt-4 space-y-2">
-                <textarea id="tpl-personalizado" rows="7" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">¡Hola, *{nombre}*! 🤵🏻✨
+                <textarea id="tpl-personalizado" rows="6" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">¡Hola, *{nombre}*! 🤵🏻✨
 
-Te escribimos con mucho gusto de parte del *equipo de los Best Man del novio*, quienes estamos apoyando a los novios con la logística y entrega de pases para su boda. 💍🥂
+Te escribimos con mucho gusto de parte del *equipo de los Best Man del novio*, quienes estamos apoyando a los novios con la logística y confirmación para su boda. 💍🥂
 
-Por este medio te hacemos llegar tu *Pase Digital con Código QR de acceso al jardín*:
-{detalle_pases}
-{detalle_mesa}
+Por este medio te hacemos llegar tu *Pase Digital con Código QR para el acceso a la Iglesia*. ⛪
 
-Por favor conserva la imagen adjunta con tu código QR y muéstrala en la entrada el día del evento. ¡Los novios y nosotros te esperamos para celebrar juntos! 🎉</textarea>
+Por favor conserva la imagen adjunta con tu código QR y muéstrala en la entrada de la iglesia el día del evento. ¡Los novios y nosotros te esperamos para celebrar juntos! 🎉</textarea>
               </div>
 
               <!-- Formal Genérico -->
               <div id="tab-content-generico" class="mt-4 space-y-2 hidden">
-                <textarea id="tpl-generico" rows="7" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">¡Hola! Muy buen día 🤵🏻✨
+                <textarea id="tpl-generico" rows="6" class="w-full text-xs font-sans p-3 border rounded-xl focus:ring-1 focus:ring-rose-500 text-slate-800 bg-slate-50">¡Hola! Muy buen día 🤵🏻✨
 
-Le escribimos cordialmente de parte del *equipo de los Best Man del novio*, quienes estamos apoyando a los novios con la logística y entrega de pases para su boda. 💍🥂
+Le escribimos cordialmente de parte del *equipo de los Best Man del novio*, quienes estamos apoyando a los novios con la logística y confirmación para su boda. 💍🥂
 
-Por este medio le hacemos llegar su *Pase Digital con Código QR de acceso al jardín*:
-{detalle_pases}
-{detalle_mesa}
+Por este medio le hacemos llegar su *Pase Digital con Código QR para el acceso a la Iglesia*. ⛪
 
-Por favor conserve la imagen adjunta con su código QR y muéstrela en la recepción el día del evento. ¡Será un honor contar con su presencia! 🎉</textarea>
+Por favor conserve la imagen adjunta con su código QR y muéstrela en la entrada de la iglesia el día del evento. ¡Será un honor contar con su presencia! 🎉</textarea>
               </div>
 
               <!-- Vista Previa estilo WhatsApp -->
@@ -685,7 +681,7 @@ Por favor conserve la imagen adjunta con su código QR y muéstrela en la recepc
     </div>
 
     <!-- ==========================================
-         VISTA 2: RECEPCIÓN DEL JARDÍN - ESCÁNER QR Y CHECK-IN
+         VISTA 2: RECEPCIÓN DE LA IGLESIA - ESCÁNER QR Y CHECK-IN
          ========================================== -->
     <div id="view-recepcion" class="hidden space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -695,8 +691,8 @@ Por favor conserve la imagen adjunta con su código QR y muéstrela en la recepc
           <div class="flex items-center space-x-2 pb-3 border-b border-slate-100">
             <span class="text-lg">📷</span>
             <div>
-              <h2 class="font-bold text-slate-900 text-base">Escáner QR de Recepción</h2>
-              <p class="text-[11px] text-slate-500">Apunta la cámara del celular al código QR del invitado al llegar al jardín.</p>
+              <h2 class="font-bold text-slate-900 text-base">Escáner QR de Acceso a la Iglesia</h2>
+              <p class="text-[11px] text-slate-500">Apunta la cámara del celular al código QR del invitado al llegar a la iglesia.</p>
             </div>
           </div>
 
@@ -777,22 +773,22 @@ Por favor conserve la imagen adjunta con su código QR y muéstrela en la recepc
   <div id="qr-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 class="font-serif-title font-bold text-slate-900 text-base">🌿 Pase de Acceso al Jardín</h3>
+        <h3 class="font-serif-title font-bold text-slate-900 text-base">⛪ Pase de Acceso a la Iglesia</h3>
         <button type="button" id="btn-close-qr-modal" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
       </div>
 
       <div class="bg-rose-50/40 border-2 border-rose-200 rounded-2xl p-4 space-y-2">
-        <p class="text-[11px] uppercase tracking-widest text-rose-700 font-bold">Nuestra Boda • Pase Oficial</p>
+        <p class="text-[11px] uppercase tracking-widest text-rose-700 font-bold">Nuestra Boda • Acceso a la Iglesia</p>
         <h4 id="modal-guest-name" class="font-serif-title font-bold text-slate-900 text-base">Nombre del Invitado</h4>
         <div class="bg-white p-3 rounded-xl border border-slate-200 inline-block mx-auto shadow-2xs">
           <canvas id="modal-qr-canvas" class="mx-auto"></canvas>
           <img id="modal-qr-custom-img" src="" alt="QR" class="hidden w-48 h-48 object-contain mx-auto">
         </div>
-        <div class="flex justify-center space-x-3 text-xs font-semibold text-slate-700 pt-1">
-          <span id="modal-guest-pases" class="bg-white px-2.5 py-1 rounded-lg border border-slate-200">🎟 1 Pase</span>
-          <span id="modal-guest-mesa" class="bg-white px-2.5 py-1 rounded-lg border border-slate-200">🪑 Mesa General</span>
+        <div class="hidden justify-center space-x-3 text-xs font-semibold text-slate-700 pt-1">
+          <span id="modal-guest-pases" class="bg-white px-2.5 py-1 rounded-lg border border-slate-200"></span>
+          <span id="modal-guest-mesa" class="bg-white px-2.5 py-1 rounded-lg border border-slate-200"></span>
         </div>
-        <p id="modal-guest-code" class="text-[10px] font-mono text-slate-400">Folio: JARDIN-INV-001</p>
+        <p id="modal-guest-code" class="text-[10px] font-mono text-slate-400">Folio: IGLESIA-INV-001</p>
       </div>
 
       <div class="flex flex-col sm:flex-row gap-2 pt-2">

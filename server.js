@@ -534,25 +534,17 @@ app.post('/api/remove-qr-image', (req, res) => {
   res.json({ success: true, message: 'Se ha restablecido la generación de QR automático individual.' });
 });
 
-// Función para construir el texto final del mensaje
+// Función para construir el texto final del mensaje (sin pases ni mesa)
 function construirMensaje(guest, templatePersonalizado, templateGenerico) {
   const tieneNombre = Boolean(guest.nombre && guest.nombre.trim());
   const plantillaBase = tieneNombre ? templatePersonalizado : templateGenerico;
 
-  const detallePases = guest.pases && guest.pases !== '1'
-    ? `🎟 Pases incluidos: ${guest.pases} accesos`
-    : `🎟 Pase válido para su acceso personal`;
-
-  const detalleMesa = guest.mesa
-    ? `🪑 Mesa asignada: ${guest.mesa}`
-    : '';
-
   let texto = plantillaBase
     .replace(/\{nombre\}/gi, guest.nombre || 'Distinguido/a Invitado/a')
-    .replace(/\{pases\}/gi, guest.pases || '1')
-    .replace(/\{detalle_pases\}/gi, detallePases)
-    .replace(/\{mesa\}/gi, guest.mesa || '')
-    .replace(/\{detalle_mesa\}/gi, detalleMesa)
+    .replace(/\{pases\}/gi, '')
+    .replace(/\{detalle_pases\}/gi, '')
+    .replace(/\{mesa\}/gi, '')
+    .replace(/\{detalle_mesa\}/gi, '')
     .replace(/\{codigo\}/gi, guest.codigo || '');
 
   texto = texto.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
@@ -606,10 +598,8 @@ app.post('/api/send-test', async (req, res) => {
       imageBuffer = Buffer.from(b64, 'base64');
     } else {
       const contenidoQR = JSON.stringify({
-        evento: 'Boda - Pase de Prueba',
+        evento: 'Boda - Acceso Iglesia (Prueba)',
         invitado: mockGuest.nombre || 'Invitado de Honor',
-        pases: mockGuest.pases,
-        mesa: mockGuest.mesa,
         codigo: mockGuest.codigo,
         esPrueba: true
       });
@@ -891,10 +881,8 @@ async function ejecutarEnviosEnCola(config, guestList = currentGuests) {
         imageBuffer = Buffer.from(b64, 'base64');
       } else {
         const contenidoQR = JSON.stringify({
-          evento: 'Boda - Acceso Jardín',
+          evento: 'Boda - Acceso Iglesia',
           invitado: guest.nombre || 'Invitado de Honor',
-          pases: guest.pases || 1,
-          mesa: guest.mesa || 'General',
           codigo: guest.codigo,
           valido: true
         });
@@ -940,7 +928,7 @@ async function ejecutarEnviosEnCola(config, guestList = currentGuests) {
             text: `✅ *[BODA - INVITACIÓN ENTREGADA]*\n` +
               `👤 *Invitado:* ${guest.nombre || '(Sin nombre - Formal)'}\n` +
               `📱 *Teléfono:* ${guest.telefono}\n` +
-              `🎫 *Pases:* ${guest.pases || '1'} | *Mesa:* ${guest.mesa || 'General'}\n` +
+              `⛪ *Acceso:* Iglesia\n` +
               `⏰ *Hora:* ${horaActual}\n` +
               `📊 *Progreso:* ${sendingState.sentCount + sendingState.errorCount}/${guestList.length}`
           });
@@ -979,7 +967,6 @@ async function ejecutarEnviosEnCola(config, guestList = currentGuests) {
               `👤 *Invitado:* ${guest.nombre || '(Sin nombre especificado)'}\n` +
               `📱 *Teléfono:* ${guest.telefono}\n` +
               `❌ *Motivo:* ${err.message || 'Fallo de entrega'}\n` +
-              `🎫 *Pases:* ${guest.pases || '1'} | *Mesa:* ${guest.mesa || 'General'}\n` +
               `⏰ *Hora:* ${horaActual}\n\n` +
               `📲 *Enlace para atención manual:* ${waDirectLink}`
           });

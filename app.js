@@ -403,7 +403,7 @@ async function sincronizarInvitadosAlServidor() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ guests: allGuests })
     });
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function finalizarCargaInvitados(fileName) {
@@ -566,10 +566,10 @@ if (btnClearAllData) {
 
     allGuests = [];
     teamAssignments = [];
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { }
 
     if (backendOnline) {
-      try { await fetch(`${API_BASE}/api/clear-all`, { method: 'POST' }); } catch (e) {}
+      try { await fetch(`${API_BASE}/api/clear-all`, { method: 'POST' }); } catch (e) { }
     }
 
     excelSummaryBox.classList.add('hidden');
@@ -629,7 +629,7 @@ btnLoadTestBatch.addEventListener('click', async () => {
         testBatchFeedback.textContent = `✅ Se cargaron ${data.total} invitaciones de prueba hacia ${phone}.`;
         return;
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // Fallback local si no hay servidor
@@ -692,7 +692,7 @@ inputQrImage.addEventListener('change', async () => {
       const formData = new FormData();
       formData.append('qrImage', file);
       await fetch(`${API_BASE}/api/upload-qr-image`, { method: 'POST', body: formData });
-    } catch (e) {}
+    } catch (e) { }
   }
 });
 
@@ -701,7 +701,7 @@ btnRemoveQrImage.addEventListener('click', async () => {
   previewCustomQr.classList.add('hidden');
   inputQrImage.value = '';
   if (backendOnline) {
-    try { await fetch(`${API_BASE}/api/remove-qr-image`, { method: 'POST' }); } catch (e) {}
+    try { await fetch(`${API_BASE}/api/remove-qr-image`, { method: 'POST' }); } catch (e) { }
   }
   updatePreviewWhatsApp();
 });
@@ -887,7 +887,7 @@ function updateResultsTable(results, currentGuestId = null) {
         if (timeCell) timeCell.textContent = item.hora || '';
         if (detailCell) detailCell.innerHTML = `<span class="text-red-600 font-medium">${escapeHtml(item.motivo || 'Fallo de entrega')}</span>`;
       }
-    } catch (e) {}
+    } catch (e) { }
   });
 
   if (currentGuestId) {
@@ -901,7 +901,7 @@ function updateResultsTable(results, currentGuestId = null) {
           currentRow.classList.add('bg-amber-50/70');
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 }
 
@@ -981,7 +981,7 @@ btnPauseSending.addEventListener('click', async () => {
     await fetch(`${API_BASE}/api/pause-sending`, { method: 'POST' });
     btnPauseSending.classList.add('hidden');
     btnResumeSending.classList.remove('hidden');
-  } catch (e) {}
+  } catch (e) { }
 });
 
 btnResumeSending.addEventListener('click', async () => {
@@ -989,7 +989,7 @@ btnResumeSending.addEventListener('click', async () => {
     await fetch(`${API_BASE}/api/resume-sending`, { method: 'POST' });
     btnResumeSending.classList.add('hidden');
     btnPauseSending.classList.remove('hidden');
-  } catch (e) {}
+  } catch (e) { }
 });
 
 btnStopSending.addEventListener('click', async () => {
@@ -997,7 +997,7 @@ btnStopSending.addEventListener('click', async () => {
   try {
     await fetch(`${API_BASE}/api/stop-sending`, { method: 'POST' });
     setSendingUIState(false);
-  } catch (e) {}
+  } catch (e) { }
 });
 
 if (btnRetryFailed) {
@@ -1101,7 +1101,7 @@ function startProgressPolling() {
           btnRetryFailed.classList.remove('hidden');
         }
       }
-    } catch (err) {}
+    } catch (err) { }
   }, 1500);
 }
 
@@ -1117,7 +1117,7 @@ if (btnResetSending) {
     }
 
     if (backendOnline) {
-      try { await fetch(`${API_BASE}/api/reset-sending`, { method: 'POST' }); } catch (e) {}
+      try { await fetch(`${API_BASE}/api/reset-sending`, { method: 'POST' }); } catch (e) { }
     }
 
     allGuests.forEach(g => {
@@ -1289,7 +1289,7 @@ btnGenerateTeam.addEventListener('click', async () => {
           }
         });
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const filtro = selectTeamFilter.value;
@@ -1358,11 +1358,10 @@ function renderTeamTabs() {
     const count = asig.guests.length;
     const completed = asig.guests.filter(g => g.enviadoManual).length;
 
-    btn.className = `px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
-      isActive
+    btn.className = `px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${isActive
         ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-200'
         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-    }`;
+      }`;
     btn.innerHTML = `
       <span>👤 ${escapeHtml(asig.collaborator)}</span>
       <span class="text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-rose-800 text-rose-100' : 'bg-slate-200 text-slate-700'}">
@@ -1665,7 +1664,7 @@ btnStartScanner.addEventListener('click', () => {
     { facingMode: 'environment' },
     { fps: 10, qrbox: { width: 220, height: 220 } },
     (decodedText) => procesarLecturaQR(decodedText),
-    () => {}
+    () => { }
   ).catch((err) => {
     alert('No se pudo abrir la cámara: ' + err);
     btnStartScanner.classList.remove('hidden');
@@ -1757,10 +1756,10 @@ function renderDoorTable() {
   const q = (inputSearchDoor.value || '').toLowerCase().trim();
   const list = q
     ? allGuests.filter(g =>
-        (g.nombre && g.nombre.toLowerCase().includes(q)) ||
-        (g.mesa && g.mesa.toLowerCase().includes(q)) ||
-        (g.codigo && g.codigo.toLowerCase().includes(q))
-      )
+      (g.nombre && g.nombre.toLowerCase().includes(q)) ||
+      (g.mesa && g.mesa.toLowerCase().includes(q)) ||
+      (g.codigo && g.codigo.toLowerCase().includes(q))
+    )
     : allGuests;
 
   doorGuestsTbody.innerHTML = '';
@@ -1775,9 +1774,8 @@ function renderDoorTable() {
       <td class="px-3 py-2.5 text-center font-bold text-slate-700">${escapeHtml(g.pases)}</td>
       <td class="px-3 py-2.5 text-center text-slate-600">${escapeHtml(g.mesa || 'General')}</td>
       <td class="px-3 py-2.5 text-center">
-        <button type="button" class="btn-door-toggle px-3 py-1.5 rounded-lg text-xs font-bold ${
-          g.checkedIn ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-600 hover:bg-rose-700 text-white'
-        }">
+        <button type="button" class="btn-door-toggle px-3 py-1.5 rounded-lg text-xs font-bold ${g.checkedIn ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-600 hover:bg-rose-700 text-white'
+      }">
           ${g.checkedIn ? '✓ Ingresó (' + g.horaCheckIn + ')' : 'Registrar Entrada'}
         </button>
       </td>
@@ -1828,7 +1826,7 @@ function fallbackCopy(texto, aviso) {
   ta.style.opacity = '0';
   document.body.appendChild(ta);
   ta.select();
-  try { document.execCommand('copy'); mostrarNotificacionToast(aviso); } catch (e) {}
+  try { document.execCommand('copy'); mostrarNotificacionToast(aviso); } catch (e) { }
   document.body.removeChild(ta);
 }
 
@@ -1857,7 +1855,7 @@ function guardarEstadoLocal() {
       tplGen: tplGenerico.value,
       teamMembers: inputTeamMembers.value
     }));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function cargarEstadoLocal() {
@@ -1880,7 +1878,7 @@ function cargarEstadoLocal() {
       }));
       finalizarCargaInvitados('Lista_Guardada.xlsx');
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function escapeHtml(str) {
